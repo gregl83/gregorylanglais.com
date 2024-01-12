@@ -23,7 +23,7 @@ main {
 
 .social a:link.share img,
 .social a:visited.share img {
-    opacity: .35;
+    opacity: .34;
 }
 
 .social a:hover.share svg,
