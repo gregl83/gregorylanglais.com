@@ -1,6 +1,9 @@
 {{ $title := .Site.Title }}
-{{ $type := "website" }}
+{{ $type := "profile" }}
 {{ $description := .Summary }}
+{{ if not $description }}
+    {{ $description = "Entrepreneur and Technologist" }}
+{{ end }}
 {{ $keywords := slice "gregory" "langlais" "entrepreneur" "technology" }}
 <head>
     <title>{{ $title }}</title>
