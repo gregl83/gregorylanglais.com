@@ -1,3 +1,37 @@
 main {
     padding-top: 80px;
 }
+
+.social a:link.share,
+.social a:visited.share,
+.social a:hover.share,
+.social a:active.share {
+    margin-left: 10px;
+    text-decoration: none;
+}
+
+.social a.share svg,
+.social a.share img {
+    width: 64px;
+    height: 64px;
+}
+
+.social a:link.share svg,
+.social a:visited.share svg {
+    fill: #a8a8a8;
+}
+
+.social a:link.share img,
+.social a:visited.share img {
+    opacity: .35;
+}
+
+.social a:hover.share svg,
+.social a:active.share svg {
+    fill: #000000;
+}
+
+.social a:hover.share img,
+.social a:active.share img {
+    opacity: 1;
+}
