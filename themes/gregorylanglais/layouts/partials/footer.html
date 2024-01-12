@@ -1,6 +1,6 @@
 {{ $currentYear := now.Year }}
-<footer class="footer mt-auto">
-    <div class="text-center text-md-left nav-link text-white">© {{ $currentYear }} {{ .Site.Params.Organization }} all rights reserved.</div>
+<footer class="footer fixed-bottom">
+    <div class="text-center">© {{ $currentYear }} {{ .Site.Params.Organization }} all rights reserved.</div>
     <!-- JavaScript and dependencies -->
     {{ $bootstrap := resources.Get "js/bootstrap.bundle.min.js" }}
     {{ $jquery := resources.Get "js/jquery.slim.js" }}

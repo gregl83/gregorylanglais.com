@@ -5,7 +5,7 @@ description = 'Entrepreneur and Technologist'
 theme = 'gregorylanglais'
 
 [params]
-organization = "gregory langlais"
+organization = "Gregory Langlais"
 mainSections = ['referrals']
 
 [module]
