@@ -9,7 +9,7 @@
                 <li class="d-inline">
                     {{ if eq (lower .Title) "bixod" }}
                     {{ $bixodIcon := resources.GetMatch "images/bixod.png" }}
-                    <a href="https://bixod.com/people/{{ .Params.Username }}" class="share github" target="_blank">
+                    <a href="https://bixod.com/people/{{ .Params.Username }}" class="share bixod" target="_blank">
                         <img role="img" alt="Bixod" src="{{$bixodIcon.RelPermalink}}" />
                     </a>
                     {{ end }}
