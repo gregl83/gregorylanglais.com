@@ -2,7 +2,7 @@
 
 This repository contains the source code for [GregoryLanglais.com](https://gregorylanglais.com).
 
-[Follow-Me](https://gregl83.com) for technology conversations, software obsession, and dreams about the future.
+[Follow-Me](http://gregl83.com) for technology conversations, software obsession, and dreams about the future.
 
 ## License
 
