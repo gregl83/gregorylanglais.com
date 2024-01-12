@@ -1,0 +1,29 @@
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      python: 3.8
+    commands:
+      - apt-get update
+      - echo Installing hugo
+      - curl -L -o hugo.deb https://github.com/gohugoio/hugo/releases/download/v0.111.3/hugo_extended_0.111.3_linux-amd64.deb
+      - dpkg -i hugo.deb
+      - npm install
+  pre_build:
+    commands:
+      - echo Build configuration started on `date`
+      - echo Current directory is $CODEBUILD_SRC_DIR
+      - ls -la
+  build:
+    commands:
+      - echo Build started on `date`
+      - hugo -v --minify
+  post_build:
+    commands:
+      - echo Build completed on `date`
+      - ls -la public
+artifacts:
+    files:
+      - '**/*'
+    base-directory: 'public'

@@ -1,0 +1,9 @@
+{{ $currentYear := now.Year }}
+<footer class="footer mt-auto">
+    <div class="text-center text-md-left nav-link text-white">© {{ $currentYear }} {{ .Site.Params.Organization }} all rights reserved.</div>
+    <!-- JavaScript and dependencies -->
+    {{ $bootstrap := resources.Get "js/bootstrap.bundle.min.js" }}
+    {{ $jquery := resources.Get "js/jquery.slim.js" }}
+    {{ $js := slice $bootstrap $jquery | resources.Concat "js/bundle.js" | resources.Minify }}
+    <script src="{{$js.RelPermalink}}"></script>
+</footer>

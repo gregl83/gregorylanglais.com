@@ -1,3 +1,22 @@
 baseURL = 'https://gregorylanglais.com/'
 languageCode = 'en-us'
 title = 'Gregory Langlais'
+description = 'Entrepreneur and Technologist'
+theme = 'gregorylanglais'
+
+[params]
+organization = "gregory langlais"
+mainSections = ['referrals']
+
+[module]
+    [[module.mounts]]
+        source = "node_modules/bootstrap/dist/js/bootstrap.bundle.min.js"
+        target = "assets/js/bootstrap.bundle.min.js"
+    [[module.mounts]]
+        source = "node_modules/jquery/dist/jquery.slim.js"
+        target = "assets/js/jquery.slim.js"
+
+[markup]
+    [markup.goldmark]
+        [markup.goldmark.renderer]
+            unsafe = true
