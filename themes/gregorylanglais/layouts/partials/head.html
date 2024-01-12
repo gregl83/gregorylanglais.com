@@ -6,6 +6,13 @@
 {{ end }}
 {{ $keywords := slice "gregory" "langlais" "entrepreneur" "technology" }}
 <head>
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-MK0NBRK9RP"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-MK0NBRK9RP');
+    </script>
     <title>{{ $title }}</title>
     <meta charset="utf-8">
     <meta name="description" content="{{ $description }}">
