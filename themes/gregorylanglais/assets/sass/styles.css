@@ -1,12 +1,19 @@
-main {
-    padding-top: 80px;
+main.list,
+main.single{
+    padding-top: 24px;
+}
+
+main.list #title,
+main.single #title{
+    margin-top: 6rem;
+    text-align: center;
 }
 
 .social a:link.share,
 .social a:visited.share,
 .social a:hover.share,
 .social a:active.share {
-    margin-left: 10px;
+    margin: 0 5px;
     text-decoration: none;
 }
 

@@ -1,13 +1,22 @@
 {{ define "main" }}
-<main aria-role="main">
+{{ $referrals := where site.RegularPages "Type" "in" site.Params.mainSections }}
+<main aria-role="main" class="list">
   <div class="container">
-    <h1 id="title" class="border-bottom">{{ .Title }}</h1>
+    <h5 id="title" class="border-bottom">{{ .Title }}</h5>
   </div>
-  <div class="container d-flex flex-row flex-nowrap">
-    <div class="row row-cols-1 row-cols-md-3 g-4 mb-4 w-100 m-auto justify-content-center">
-      {{ range .Pages }}
-      <div class="col text-center">{{ .Title }}</div>
-      {{ end }}
+  <div class="container">
+    <div class="row align-items-center justify-content-center">
+      <div class="col text-center">
+        {{ if $referrals }}
+        <ul class="list-unstyled">
+          {{ range $referrals.ByWeight }}
+          <li>
+            <a href="{{ .RelPermalink }}" class="link-secondary">{{ .Title }}</a>
+          </li>
+          {{ end }}
+        </ul>
+        {{ end }}
+      </div>
     </div>
   </div>
 </main>

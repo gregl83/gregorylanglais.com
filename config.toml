@@ -5,6 +5,7 @@ description = 'Entrepreneur and Technologist'
 theme = 'gregorylanglais'
 
 [params]
+subtitle = 'Entrepreneur and Technologist'
 organization = "Gregory Langlais"
 mainSections = ['referrals']
 
