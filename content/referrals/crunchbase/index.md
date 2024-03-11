@@ -4,7 +4,7 @@ weight: 2
 username: "gregory-langlais"
 keywords: []
 date: 2024-01-18T10:25:00-05:00
-draft: false
+draft: true
 ---
 
-Founded organizations on crunchbase.
+Founded organizations on CrunchBase.
