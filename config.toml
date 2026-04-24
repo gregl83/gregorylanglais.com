@@ -1,11 +1,11 @@
 baseURL = 'https://gregorylanglais.com/'
 languageCode = 'en-us'
 title = 'Gregory Langlais'
-description = 'Entrepreneur and Technologist'
+description = 'Distributed Systems Engineering for Massive Scale and Extreme Reliability'
 theme = 'gregorylanglais'
 
 [params]
-subtitle = 'Entrepreneur and Technologist'
+subtitle = 'Distributed Systems Engineering for Massive Scale and Extreme Reliability'
 organization = "Gregory Langlais"
 mainSections = ['referrals']
 
