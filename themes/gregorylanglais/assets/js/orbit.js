@@ -96,3 +96,19 @@ if (orbit) {
         if (document.hidden) clear();
     });
 }
+
+// Match icon press feedback on the HUD without relying on sticky touch :hover.
+const hud = document.querySelector('.hud-identification');
+if (hud) {
+    const header = hud.closest('header');
+    const clearHudPress = () => { delete header.dataset.hudPressed; };
+    hud.addEventListener('pointerdown', event => {
+        if (event.pointerType !== 'mouse') header.dataset.hudPressed = '';
+    }, { passive: true });
+    window.addEventListener('pointerup', clearHudPress, { passive: true });
+    window.addEventListener('pointercancel', clearHudPress, { passive: true });
+    window.addEventListener('blur', clearHudPress);
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) clearHudPress();
+    });
+}

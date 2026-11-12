@@ -304,7 +304,7 @@ main.home .col-12 {
     width: 100%;
     max-width: 440px;
     aspect-ratio: 11 / 10;
-    max-height: calc(100cqh - 340px);
+    max-height: calc(100cqh - 32px);
     min-height: 96px;
 }
 
@@ -446,6 +446,207 @@ main.home .col-12 {
     .orbital-icons a::before,
     .social.orbital-icons a.share svg,
     .social.orbital-icons a.share img {
+        transition: none;
+    }
+}
+
+/* Cinematic viewport: a real material plate frames the live WebGL opening. */
+.viewport-frame {
+    position: fixed;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+}
+
+.viewport-frame img {
+    width: calc(100% + 8px);
+    height: calc(100% + 8px);
+    margin: -4px;
+    object-fit: fill;
+    filter: brightness(0.9) saturate(0.8);
+    transform: translate3d(var(--frame-x, 0px), var(--frame-y, 0px), 0);
+    will-change: transform;
+}
+
+#parallax-foreground {
+    z-index: 2;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    padding: 0;
+}
+
+.viewport-header {
+    --hud-light: 0;
+    position: relative;
+    height: clamp(112px, 16vh, 160px);
+    padding: Max(20px, env(safe-area-inset-top)) 24px 0;
+}
+
+.viewport-header::before {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    left: 50%;
+    top: 44px;
+    width: Min(640px, calc(100vw - 16px));
+    height: 180px;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    background: radial-gradient(ellipse at center, rgba(42, 193, 187, 0.12), rgba(52, 137, 179, 0.035) 40%, transparent 68%);
+    opacity: var(--hud-light);
+    transition: opacity 250ms ease;
+    pointer-events: none;
+}
+
+.viewport-header h1 {
+    font-size: clamp(1.4rem, 2.1vw, 1.75rem);
+    font-weight: 400;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: rgb(calc(191 + var(--hud-light) * 19), calc(249 + var(--hud-light) * 6), calc(242 + var(--hud-light) * 7));
+    text-shadow: 0 0 2px rgba(220, 255, 255, 0.2),
+                 0 0 10px rgba(61, 227, 209, calc(0.12 + var(--hud-light) * 0.38)),
+                 0 0 24px rgba(65, 179, 219, calc(0.04 + var(--hud-light) * 0.2));
+    transition: color 250ms ease, text-shadow 250ms ease;
+}
+
+.viewport-header h6 {
+    max-width: 420px;
+    margin: 9px auto 0;
+    font-size: 0.72rem;
+    font-weight: 400;
+    line-height: 1.5;
+    letter-spacing: 0.04em;
+    color: #77c9d0;
+    text-shadow: 0 0 6px rgba(73, 184, 215, calc(0.1 + var(--hud-light) * 0.25)), 0 1px 2px #05090c;
+    transition: text-shadow 250ms ease;
+}
+
+.hud-identification {
+    display: inline-block;
+    position: relative;
+    max-width: 100%;
+    padding: 0 16px;
+}
+
+.hud-identification::before,
+.hud-identification::after {
+    content: "";
+    position: absolute;
+    top: 7px;
+    width: 5px;
+    height: 10px;
+    border-top: 1px solid rgba(101, 226, 218, 0.45);
+    pointer-events: none;
+    filter: drop-shadow(0 0 3px rgba(55, 210, 211, 0.3));
+}
+
+.hud-identification::before {
+    left: 0;
+    border-left: 1px solid rgba(101, 226, 218, 0.45);
+}
+
+.hud-identification::after {
+    right: 0;
+    border-right: 1px solid rgba(101, 226, 218, 0.45);
+}
+
+.viewport-header h6::after {
+    content: "";
+    display: block;
+    width: 80px;
+    height: 1px;
+    margin: 8px auto 0;
+    background: linear-gradient(to right, transparent, rgba(89, 207, 212, 0.4), transparent);
+}
+
+footer.viewport-footer {
+    position: relative;
+    height: clamp(58px, 10vh, 100px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 18px 20px Max(8px, env(safe-area-inset-bottom));
+    font-size: 0.68rem;
+    letter-spacing: 0.055em;
+    color: #76b4c2;
+    text-shadow: 0 0 7px rgba(75, 183, 211, 0.2), 0 1px 2px #05090c;
+}
+
+#content {
+    min-height: 0;
+}
+
+@media (max-width: 767px) and (orientation: portrait) {
+    .viewport-frame img {
+        object-fit: cover;
+    }
+
+    .viewport-header {
+        height: clamp(100px, 17vh, 130px);
+        padding-top: Max(18px, env(safe-area-inset-top));
+    }
+
+    .viewport-header h1 {
+        font-size: clamp(1.05rem, 5vw, 1.4rem);
+        letter-spacing: 0.1em;
+    }
+
+    .viewport-header h6 {
+        max-width: 280px;
+        margin-top: 6px;
+        font-size: 0.7rem;
+    }
+
+    footer.viewport-footer {
+        height: clamp(58px, 10vh, 80px);
+        font-size: 0.62rem;
+    }
+
+    #content {
+        padding: 0 16px;
+    }
+}
+
+@media (max-height: 400px) and (orientation: landscape) {
+    .viewport-header {
+        height: 64px;
+        padding-top: 7px;
+    }
+
+    .viewport-header h1 {
+        font-size: 1.2rem;
+    }
+
+    .viewport-header h6 {
+        margin-top: 3px;
+        font-size: 0.65rem;
+        max-width: 470px;
+    }
+
+    footer.viewport-footer {
+        height: 38px;
+        padding: 8px 16px 2px;
+        font-size: 0.6rem;
+    }
+}
+
+.viewport-header[data-hud-pressed],
+.viewport-header:has(.hud-identification a:focus-visible) {
+    --hud-light: 1;
+}
+
+@media (hover: hover) and (pointer: fine) {
+    .viewport-header:has(.hud-identification:hover) {
+        --hud-light: 1;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .viewport-header::before,
+    .viewport-header h1,
+    .viewport-header h6 {
         transition: none;
     }
 }

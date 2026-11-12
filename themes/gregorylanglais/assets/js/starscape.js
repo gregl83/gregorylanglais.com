@@ -569,6 +569,8 @@ import * as THREE from 'three';
     // Mouse input describes a viewpoint shift; device sensors describe rotation.
     // Keep these separate instead of interpreting both as camera translation.
     const rig = { mode: 'mouse', yaw: 0, pitch: 0, roll: 0 };
+    const viewportFrame = document.querySelector('.viewport-frame');
+    const framePose = { x: 0, y: 0 };
     const targetRotation = new THREE.Quaternion();
     const rigEuler = new THREE.Euler(0, 0, 0, 'YXZ');
     const deviceEuler = new THREE.Euler(0, 0, 0, 'YXZ');
@@ -739,6 +741,20 @@ import * as THREE from 'three';
             camera.position.x += (shiftX - camera.position.x) * (1 - Math.exp(-delta * 16));
             camera.position.y += (shiftY - camera.position.y) * (1 - Math.exp(-delta * 16));
             updateMeteor(now);
+        }
+
+        if (viewportFrame) {
+            // A near-field window moves very little; the sky supplies the depth.
+            // Both bulkheads move together, while text stays readable and fixed.
+            const tilt = rig.mode === 'tilt';
+            const targetX = prefersReducedMotion ? 0 : tilt ? -rig.yaw / 0.12 : pointer.currentX;
+            const targetY = prefersReducedMotion ? 0 : tilt ? rig.pitch / 0.1 : pointer.currentY;
+            const damping = 1 - Math.exp(-delta * 16);
+            framePose.x += (targetX - framePose.x) * damping;
+            framePose.y += (targetY - framePose.y) * damping;
+            const strength = rig.mode === 'mouse' ? 1 : 0.55;
+            viewportFrame.style.setProperty('--frame-x', `${framePose.x * 2 * strength}px`);
+            viewportFrame.style.setProperty('--frame-y', `${-framePose.y * 1.5 * strength}px`);
         }
 
         renderer.render(scene, camera);

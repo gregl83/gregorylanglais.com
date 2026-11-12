@@ -5,7 +5,9 @@ description = 'Distributed Systems Engineering for Massive Scale and Extreme Rel
 theme = 'gregorylanglais'
 
 [params]
-subtitle = 'Distributed Systems Engineering for Massive Scale and Extreme Reliability'
+subtitle = """
+Distributed Systems Engineering
+Massive Scale and Extreme Reliability"""
 organization = "Gregory Langlais"
 mainSections = ['referrals']
 

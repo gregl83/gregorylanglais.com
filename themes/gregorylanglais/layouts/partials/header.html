@@ -1,6 +1,8 @@
-<header class="fixed-top text-center pt-3">
-    <a href="/">
-        <h1>{{ .Site.Title }}</h1>
-    </a>
-    <h6>{{ .Site.Params.subtitle }}</h6>
+<header class="viewport-header text-center">
+    <div class="hud-identification">
+        <a href="/">
+            <h1>{{ .Site.Title }}</h1>
+        </a>
+        <h6>{{ range split .Site.Params.subtitle "\n" }}<span class="d-block">{{ . }}</span>{{ end }}</h6>
+    </div>
 </header>
