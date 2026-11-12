@@ -1,6 +1,6 @@
 {{ define "main" }}
 {{ $referrals := where site.RegularPages "Type" "in" site.Params.mainSections }}
-<main aria-role="main" class="list">
+<main aria-role="main" class="list flex-grow-1 d-flex flex-column justify-content-center">
   <div class="container">
     <h5 id="title" class="border-bottom">{{ .Title }}</h5>
   </div>

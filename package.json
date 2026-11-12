@@ -1,4 +1,10 @@
 {
+  "name": "gregorylanglais.com",
+  "private": true,
+  "scripts": {
+    "start": "hugo server -D",
+    "build": "hugo --minify"
+  },
   "dependencies": {
     "bootstrap": "^5.2.3",
     "jquery": "^3.6.4"

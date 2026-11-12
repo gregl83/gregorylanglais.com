@@ -1,11 +1,11 @@
 {{ define "main" }}
 {{ $referrals := where site.RegularPages "Type" "in" site.Params.mainSections }}
-<main aria-role="main">
+<main aria-role="main" class="flex-grow-1 d-flex align-items-center justify-content-center">
     <div class="container">
-        <div class="row min-vh-100 align-items-center justify-content-center">
+        <div class="row align-items-center justify-content-center">
             <div class="col text-center">
                 {{ if $referrals }}
-                <ul class="list-unstyled social">
+                <ul class="list-unstyled social m-0">
                     {{ range $referrals.ByWeight }}
                     <li class="d-inline">
                         {{- partial "icon.html" . -}}

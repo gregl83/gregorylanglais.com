@@ -11,6 +11,12 @@ mainSections = ['referrals']
 
 [module]
     [[module.mounts]]
+        source = "assets"
+        target = "assets"
+    [[module.mounts]]
+        source = "node_modules/bootstrap/scss"
+        target = "assets/sass/bootstrap"
+    [[module.mounts]]
         source = "node_modules/bootstrap/dist/js/bootstrap.bundle.min.js"
         target = "assets/js/bootstrap.bundle.min.js"
     [[module.mounts]]

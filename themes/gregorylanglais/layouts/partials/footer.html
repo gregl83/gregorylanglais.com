@@ -1,5 +1,5 @@
 {{ $currentYear := now.Year }}
-<footer class="footer fixed-bottom pb-3">
+<footer class="footer text-center pb-3 flex-shrink-0">
     <div class="text-center">© {{ $currentYear }} {{ .Site.Params.Organization }} all rights reserved.</div>
     <!-- JavaScript and dependencies -->
     {{ $bootstrap := resources.Get "js/bootstrap.bundle.min.js" }}
