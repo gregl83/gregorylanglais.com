@@ -16,7 +16,7 @@ import * as THREE from 'three';
     const scene = new THREE.Scene();
     scene.fog = new THREE.FogExp2(0x000000, 0.0007);
 
-    const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 1, 3000);
+    const camera = new THREE.PerspectiveCamera(55, canvas.clientWidth / canvas.clientHeight, 1, 3000);
     camera.position.set(0, 0, 0);
 
     const renderer = new THREE.WebGLRenderer({
@@ -26,7 +26,7 @@ import * as THREE from 'three';
         powerPreference: 'high-performance'
     });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setSize(canvas.clientWidth, canvas.clientHeight, false);
     renderer.setClearColor(0x000000, 1.0);
 
     const clock = new THREE.Clock();
@@ -345,18 +345,31 @@ import * as THREE from 'three';
     }, { passive: true });
 
     // Mobile Gyroscope (Device Tilt)
-    let gyroActive = false;
+    let orientationOrigin = null;
+    let touchActive = false;
 
     function handleOrientation(e) {
-        if (e.gamma === null || e.beta === null) return;
-        gyroActive = true;
+        if (!Number.isFinite(e.gamma) || !Number.isFinite(e.beta)) return;
+        if (!orientationOrigin) {
+            orientationOrigin = { gamma: e.gamma, beta: e.beta };
+        }
+        if (touchActive || prefersReducedMotion) return;
 
-        const clampedGamma = Math.max(-45, Math.min(45, e.gamma));
-        const clampedBeta = Math.max(15, Math.min(75, e.beta));
-
-        pointer.targetX = clampedGamma / 45;
-        pointer.targetY = ((clampedBeta - 45) / 30);
+        // Calibrate to the user's resting position and rotate into screen axes.
+        const angle = (window.screen.orientation?.angle ?? window.orientation ?? 0) * Math.PI / 180;
+        const x = ((e.gamma - orientationOrigin.gamma + 540) % 360) - 180;
+        const y = ((e.beta - orientationOrigin.beta + 540) % 360) - 180;
+        pointer.targetX = Math.max(-1, Math.min(1, (x * Math.cos(angle) + y * Math.sin(angle)) / 30));
+        pointer.targetY = Math.max(-1, Math.min(1, (y * Math.cos(angle) - x * Math.sin(angle)) / 30));
     }
+
+    function resetOrientation() {
+        orientationOrigin = null;
+        pointer.targetX = 0;
+        pointer.targetY = 0;
+    }
+    window.addEventListener('orientationchange', resetOrientation, { passive: true });
+    window.screen.orientation?.addEventListener('change', resetOrientation);
 
     if (window.DeviceOrientationEvent) {
         if (typeof DeviceOrientationEvent.requestPermission === 'function') {
@@ -381,13 +394,14 @@ import * as THREE from 'three';
     // Mobile Touch Drag Fallback
     window.addEventListener('touchstart', (e) => {
         if (e.touches.length > 0) {
+            touchActive = true;
             pointer.touchStartX = e.touches[0].clientX;
             pointer.touchStartY = e.touches[0].clientY;
         }
     }, { passive: true });
 
     window.addEventListener('touchmove', (e) => {
-        if (gyroActive || e.touches.length === 0) return;
+        if (prefersReducedMotion || e.touches.length === 0) return;
         const dx = (e.touches[0].clientX - pointer.touchStartX) / window.innerWidth;
         const dy = (e.touches[0].clientY - pointer.touchStartY) / window.innerHeight;
 
@@ -397,19 +411,28 @@ import * as THREE from 'three';
         pointer.touchStartY = e.touches[0].clientY;
     }, { passive: true });
 
+    function endTouch() {
+        touchActive = false;
+        orientationOrigin = null;
+    }
+    window.addEventListener('touchend', endTouch, { passive: true });
+    window.addEventListener('touchcancel', endTouch, { passive: true });
+
     // 7. Window Resizing
     function onResize() {
-        const w = window.innerWidth;
-        const h = window.innerHeight;
+        const w = canvas.clientWidth;
+        const h = canvas.clientHeight;
 
         camera.aspect = w / h;
         camera.updateProjectionMatrix();
 
-        renderer.setSize(w, h);
+        renderer.setSize(w, h, false);
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         commonUniforms.uPixelRatio.value = Math.min(window.devicePixelRatio, 2);
     }
     window.addEventListener('resize', onResize, { passive: true });
+    const viewportObserver = new ResizeObserver(onResize);
+    viewportObserver.observe(canvas);
 
     // 8. Main Render & Animation Loop
     let animationFrameId;
@@ -473,6 +496,7 @@ import * as THREE from 'three';
     // Clean disposal
     window.addEventListener('beforeunload', () => {
         cancelAnimationFrame(animationFrameId);
+        viewportObserver.disconnect();
         renderer.dispose();
     });
 })();

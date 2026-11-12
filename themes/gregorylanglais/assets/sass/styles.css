@@ -197,3 +197,80 @@ main h3 a:hover {
         height: 50px;
     }
 }
+
+/* Use the same visible viewport for the foreground and the renderer. */
+body {
+    overscroll-behavior: none;
+}
+
+#content,
+main.home,
+main.home > .container {
+    height: 100%;
+}
+
+/* Keep the desktop composition; reserve room for UI on phones and short screens. */
+@media (max-width: 767px), (max-height: 500px) {
+    #parallax-foreground {
+        display: grid;
+        grid-template-rows: auto minmax(0, 1fr) auto;
+        grid-template-columns: minmax(0, 1fr);
+        padding: Max(12px, env(safe-area-inset-top)) Max(16px, env(safe-area-inset-right)) Max(12px, env(safe-area-inset-bottom)) Max(16px, env(safe-area-inset-left));
+    }
+
+    header.fixed-top,
+    footer.fixed-bottom {
+        position: relative;
+        inset: auto;
+    }
+
+    header.fixed-top {
+        padding-top: 0 !important;
+    }
+
+    footer.fixed-bottom {
+        padding-bottom: 0 !important;
+        font-size: clamp(0.65rem, 2.8vw, 0.9rem);
+    }
+
+    #content {
+        min-height: 0;
+    }
+
+    header h1 {
+        font-size: clamp(1.4rem, 7vw, 2rem);
+    }
+
+    header h6 {
+        font-size: 0.9rem;
+        margin: 0.75rem auto;
+    }
+
+    .social {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+    }
+
+    .social a.share {
+        margin: 0;
+    }
+
+    .social a.share svg,
+    .social a.share img {
+        width: clamp(28px, calc((100vw - 128px) / 5), 50px);
+        height: clamp(28px, calc((100vw - 128px) / 5), 50px);
+    }
+}
+
+@media (max-height: 400px) {
+    header h1 {
+        font-size: 1.5rem;
+    }
+
+    header h6 {
+        margin: 0.35rem auto;
+        font-size: 0.8rem;
+    }
+}

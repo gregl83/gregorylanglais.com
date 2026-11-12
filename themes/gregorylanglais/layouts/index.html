@@ -1,7 +1,7 @@
 {{ define "main" }}
 {{ $referrals := where site.RegularPages "Type" "in" site.Params.mainSections }}
-<main aria-role="main">
-    <div class="container min-vh-100 d-flex align-items-center justify-content-center">
+<main class="home">
+    <div class="container d-flex align-items-center justify-content-center">
         <div class="row w-100 justify-content-center text-center">
             <div class="col-12">
                 {{ if $referrals }}
