@@ -1,7 +1,7 @@
 {{ if eq (lower .Title) "bixod" }}
-{{ $bixodIcon := resources.GetMatch "images/bixod.png" }}
+{{ $bixodIcon := resources.Get "images/bixod.svg" }}
 <a href="https://bixod.com/people/{{ .Params.Username }}" class="share bixod" target="_blank">
-    <img role="img" alt="Bixod" src="{{$bixodIcon.RelPermalink}}" />
+    {{ $bixodIcon.Content | safeHTML }}
 </a>
 {{ end }}
 {{ if eq (lower .Title) "crunchbase" }}
