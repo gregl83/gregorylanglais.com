@@ -1,5 +1,7 @@
 ---
 title: "bixod"
+profileURL: "https://bixod.com/people/gregory-langlais"
+description: "Gregory Langlais’s profile on bixod."
 weight: 10
 username: "gregory-langlais"
 keywords: []

@@ -1,5 +1,7 @@
 ---
 title: "Flickr"
+profileURL: "https://flickr.com/photos/gregl83"
+description: "Photography by Gregory Langlais on Flickr (gregl83)."
 weight: 4
 username: "gregl83"
 keywords: []

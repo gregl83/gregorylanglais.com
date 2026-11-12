@@ -1,10 +1,12 @@
 baseURL = 'https://gregorylanglais.com/'
 languageCode = 'en-us'
 title = 'Gregory Langlais'
-description = 'Distributed Systems Engineering for Massive Scale and Extreme Reliability'
 theme = 'gregorylanglais'
+enableRobotsTXT = true
 
 [params]
+seoTitle = 'Gregory Langlais | Distributed Systems Engineering'
+description = 'Distributed systems engineering for massive scale and extreme reliability. Explore Gregory Langlais’s projects and professional profiles.'
 subtitle = """
 Distributed Systems Engineering
 Massive Scale and Extreme Reliability"""

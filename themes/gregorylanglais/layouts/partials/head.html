@@ -1,11 +1,53 @@
-{{ $title := .Site.Title }}
-{{ $type := "profile" }}
-{{ $description := .Summary }}
-{{ if not $description }}
-    {{ $description = "Distributed Systems Engineering for Massive Scale and Extreme Reliability" }}
-{{ end }}
-{{ $keywords := slice "gregory langlais" "gregory" "greg" "langlais" "ai" "distributed systems" "software architecture" "machine learning" "frontier" "bixod" }}
+{{ $title := printf "%s | %s" .Title .Site.Title }}
+{{ if .IsHome }}{{ $title = .Site.Params.seoTitle }}{{ end }}
+{{ if eq .Kind "404" }}{{ $title = printf "Page not found | %s" .Site.Title }}{{ end }}
+{{ $description := .Description | default (.Summary | plainify) | default .Site.Params.description | plainify | htmlUnescape }}
+{{ $type := "website" }}
+{{ if .IsHome }}{{ $type = "profile" }}{{ end }}
+{{ $noindex := or (eq .Kind "404") (in (slice "taxonomy" "term") .Kind) }}
+{{ $preview := resources.Get "images/social-preview.png" }}
 <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ $title }}</title>
+    <meta name="description" content="{{ $description }}">
+    <meta name="author" content="{{ .Site.Title }}">
+    <meta name="theme-color" content="#000000">
+    {{ if $noindex }}
+    <meta name="robots" content="noindex, follow">
+    {{ end }}
+    {{ if ne .Kind "404" }}
+    <link rel="canonical" href="{{ .Permalink }}">
+    <meta property="og:url" content="{{ .Permalink }}">
+    {{ end }}
+    <meta property="og:site_name" content="{{ .Site.Title }}">
+    <meta property="og:title" content="{{ $title }}">
+    <meta property="og:type" content="{{ $type }}">
+    <meta property="og:description" content="{{ $description }}">
+    {{ if .IsHome }}
+    <meta property="profile:first_name" content="Gregory">
+    <meta property="profile:last_name" content="Langlais">
+    {{ end }}
+    <meta name="twitter:title" content="{{ $title }}">
+    <meta name="twitter:description" content="{{ $description }}">
+    {{ with $preview }}
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="{{ .Permalink }}">
+    <meta property="og:image:type" content="image/png">
+    <meta property="og:image:width" content="{{ .Width }}">
+    <meta property="og:image:height" content="{{ .Height }}">
+    <meta property="og:image:alt" content="Gregory Langlais — distributed systems engineering, projects, and professional profiles.">
+    <meta name="twitter:image" content="{{ .Permalink }}">
+    <meta name="twitter:image:alt" content="Gregory Langlais — distributed systems engineering, projects, and professional profiles.">
+    {{ else }}
+    <meta name="twitter:card" content="summary">
+    {{ end }}
+    <link rel="icon" href="{{ "favicon.svg" | relURL }}" type="image/svg+xml">
+    <link rel="icon" href="{{ "favicon-32.png" | relURL }}" type="image/png" sizes="32x32">
+    <link rel="apple-touch-icon" href="{{ "apple-touch-icon.png" | relURL }}" sizes="180x180">
+    {{ if .IsHome }}
+    {{ partial "profile-schema.html" . }}
+    {{ end }}
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-MK0NBRK9RP"></script>
     <script>
         window.dataLayer = window.dataLayer || [];
@@ -13,19 +55,6 @@
         gtag('js', new Date());
         gtag('config', 'G-MK0NBRK9RP');
     </script>
-    <title>{{ $title }}</title>
-    <meta charset="utf-8">
-    <meta name="description" content="{{ $description }}">
-    <meta name="keywords" content="{{ delimit $keywords ", " }}">
-    <meta name="dc.relation" content="{{ .Site.BaseURL }}">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta property="og:site_name" content="gregory langlais">
-    <meta property="og:title" content="{{ $title }}">
-    <meta property="og:type" content="{{ $type }}">
-    <meta property="og:description" content="{{ $description }}">
-    <meta name="twitter:title" content="{{ $title }}">
-    <meta name="twitter:description" content="{{ $description }}">
-    <meta name="twitter:card" content="summary_large_image">
     {{ $options := (dict "targetPath" "css/styles.css" "outputStyle" "compressed" "includePaths" (slice "node_modules")) }}
     {{ $style := resources.Get "sass/main.scss" | toCSS  $options | minify }}
     <link rel="stylesheet" href="{{ $style.RelPermalink }}" media="screen">

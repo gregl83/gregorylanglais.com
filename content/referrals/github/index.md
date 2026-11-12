@@ -1,5 +1,7 @@
 ---
 title: "Github"
+profileURL: "https://github.com/gregl83"
+description: "Gregory Langlais on GitHub (gregl83). Code, repositories, and open-source projects."
 weight: 1
 username: "gregl83"
 keywords: []
