@@ -51,27 +51,38 @@ import * as THREE from 'three';
         varying float vAlpha;
         varying float vFlare;
         varying float vHalo;
+        varying float vShimmer;
+        varying float vGlint;
+
+        // Smooth random intervals avoid the recognizable rhythm of a sine pulse.
+        float temporalNoise(float t) {
+            float cell = floor(t);
+            float blend = fract(t);
+            blend = blend * blend * (3.0 - 2.0 * blend);
+            float a = fract(sin(cell * 127.1 + 311.7) * 43758.5453);
+            float b = fract(sin((cell + 1.0) * 127.1 + 311.7) * 43758.5453);
+            return mix(a, b, blend);
+        }
 
         void main() {
             vColor = aColor;
             vFlare = aFlare;
             vHalo = smoothstep(2.0, 8.0, aSize);
 
-            // Harmonic organic twinkling
             float t = uTime * aTwinkleSpeed + aTwinklePhase;
-            float pulse = sin(t) * 0.5 + 0.5;
-            float pulseFast = sin(t * 2.1 + 1.3) * 0.25 + 0.25;
-            float combined = mix(pulse, pulseFast, 0.35);
-
-            float intensity = aBrightness * (1.0 - aShimmer * (1.0 - combined));
-            vAlpha = intensity;
+            float slow = temporalNoise(t * 0.7);
+            float fine = temporalNoise(t * 1.93 + aTwinklePhase * 7.0);
+            float fluctuation = (slow * 0.75 + fine * 0.25) * 2.0 - 1.0;
+            vShimmer = 1.0 + aShimmer * fluctuation;
+            float glint = smoothstep(0.88, 1.0, temporalNoise(t * 0.23 + aTwinklePhase * 11.0));
+            vGlint = aSize >= 7.0 ? aShimmer * 0.5 * glint : 0.0;
+            vAlpha = aBrightness;
 
             vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
             gl_Position = projectionMatrix * mvPosition;
 
-            float sizeScale = 1.0 + aFlare * aShimmer * combined * 0.12;
             // Attenuate point size by distance into negative Z
-            gl_PointSize = aSize * 1.8 * uPixelRatio * sizeScale * (450.0 / -mvPosition.z);
+            gl_PointSize = aSize * 1.8 * uPixelRatio * (450.0 / -mvPosition.z);
             gl_PointSize = max(gl_PointSize, aFootprint * uPixelRatio);
         }
     `;
@@ -81,6 +92,8 @@ import * as THREE from 'three';
         varying float vAlpha;
         varying float vFlare;
         varying float vHalo;
+        varying float vShimmer;
+        varying float vGlint;
 
         void main() {
             vec2 coord = gl_PointCoord - vec2(0.5);
@@ -92,20 +105,24 @@ import * as THREE from 'three';
             // at DPR 1 instead of disappearing between samples.
             float core = exp(-dist * dist * 28.0);
             float glow = exp(-dist * dist * 7.0) * 0.16 * vHalo;
-            float alpha = core + glow;
+            // The concentrated core stays steady. Only its outer light shifts;
+            // the footprint, halo radius, and spike lengths never breathe.
+            float steadyCore = smoothstep(0.2, 0.85, core);
+            float outerLight = vShimmer + vGlint;
+            float alpha = core * mix(outerLight, 1.0, steadyCore) + glow * outerLight;
 
             // Telescope 4-point optical diffraction spikes on glistening stars
             if (vFlare > 0.5) {
                 float spikeX = max(0.0, 1.0 - abs(coord.y) * 16.0) * exp(-abs(coord.x) * 4.0);
                 float spikeY = max(0.0, 1.0 - abs(coord.x) * 16.0) * exp(-abs(coord.y) * 4.0);
-                alpha += (spikeX + spikeY) * 0.3;
+                alpha += (spikeX + spikeY) * 0.3 * mix(outerLight, 1.0, steadyCore);
             }
 
             // Fade to zero before the sprite boundary to avoid cut-off halos.
             alpha *= vAlpha * (1.0 - smoothstep(0.32, 0.5, dist));
 
             // Blend spectral hue with pure white stellar core
-            vec3 finalColor = mix(vColor, vec3(1.0, 1.0, 1.0), core * 0.85);
+            vec3 finalColor = mix(vColor, vec3(1.0, 1.0, 1.0), smoothstep(0.05, 0.8, core) * 0.95);
 
             gl_FragColor = vec4(finalColor, alpha);
         }
@@ -176,8 +193,9 @@ import * as THREE from 'three';
             flares[i] = isFlare ? 1.0 : 0.0;
             sizes[i] = isFlare ? (sizeMax * 1.4) : (sizeMin + Math.random() * (sizeMax - sizeMin));
 
-            speeds[i] = 0.25 + Math.random() * 0.65;
-            shimmer[i] = prefersReducedMotion ? 0 : (Math.random() < 0.18 ? 0.12 + Math.random() * 0.18 : 0);
+            speeds[i] = 0.35 + Math.random() * 0.8;
+            const shimmers = Math.random() < (sizes[i] > 3.0 ? 0.65 : 0.04);
+            shimmer[i] = !prefersReducedMotion && shimmers ? 0.02 + Math.random() * 0.04 : 0;
             phases[i] = Math.random() * Math.PI * 2;
             const lane = y - x * 0.38 + Math.sin(x * 9) * 0.025;
             const extinction = 1 - 0.65 * Math.exp(-lane * lane / 0.0015);
