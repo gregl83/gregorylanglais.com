@@ -81,9 +81,11 @@ import * as THREE from 'three';
             vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
             gl_Position = projectionMatrix * mvPosition;
 
-            // Attenuate point size by distance into negative Z
-            gl_PointSize = aSize * 1.8 * uPixelRatio * (450.0 / -mvPosition.z);
-            gl_PointSize = max(gl_PointSize, aFootprint * uPixelRatio);
+            // Individual optical footprints retain a continuous size hierarchy.
+            // Keep at least two device pixels for sampling, not one shared CSS size.
+            float physicalSize = aSize * 1.8 * (450.0 / -mvPosition.z);
+            float opticalSize = aFootprint * pow(1200.0 / -mvPosition.z, 0.12);
+            gl_PointSize = max(2.0, max(physicalSize, opticalSize) * uPixelRatio);
         }
     `;
 
@@ -159,6 +161,30 @@ import * as THREE from 'three';
 
     // 3. Continuous stellar depth, from nearby anchors to a faint far field.
 
+    // Shared soft concentrations align across depths without becoming flat sheets.
+    const starKnots = Array.from({ length: 28 }, (_, i) => {
+        const x = -2.2 + (i + Math.random()) / 28 * 4.4;
+        return {
+            x,
+            y: x * 0.38 + (Math.random() - 0.5) * 0.38,
+            width: 0.035 + Math.random() * 0.11,
+            height: 0.02 + Math.random() * 0.07
+        };
+    });
+    function densityNoise(x, y) {
+        const hash = (a, b) => {
+            const n = Math.sin(a * 127.1 + b * 311.7) * 43758.5453;
+            return n - Math.floor(n);
+        };
+        const ix = Math.floor(x), iy = Math.floor(y);
+        let fx = x - ix, fy = y - iy;
+        fx *= fx * (3 - 2 * fx);
+        fy *= fy * (3 - 2 * fy);
+        return THREE.MathUtils.lerp(
+            THREE.MathUtils.lerp(hash(ix, iy), hash(ix + 1, iy), fx),
+            THREE.MathUtils.lerp(hash(ix, iy + 1), hash(ix + 1, iy + 1), fx), fy);
+    }
+
     function buildStarField(count, zMin, zMax, sizeMin, sizeMax, flareRatio, luminosity = 1, footprint = 2.8) {
         const geom = new THREE.BufferGeometry();
         const positions = new Float32Array(count * 3);
@@ -175,11 +201,27 @@ import * as THREE from 'three';
             const depth = zMin + Math.random() * (zMax - zMin);
             // Angular coordinates keep the dust band aligned across all depths.
             // Overscan leaves room for landscape viewports and camera translation.
-            const x = (Math.random() - 0.5) * 4.8;
-            let y = (Math.random() - 0.5) * 1.5;
-            if (Math.random() < 0.35) {
-                y = x * 0.38 + (Math.random() + Math.random() - 1) * 0.22;
-            }
+            let x, y, inKnot;
+            // Rejection sampling adds irregular sparse patches between knots.
+            do {
+                inKnot = false;
+                const population = Math.random();
+                if (count >= 5000 && population < 0.18) {
+                    inKnot = true;
+                    const knot = starKnots[Math.floor(Math.random() * starKnots.length)];
+                    const radius = Math.sqrt(-2 * Math.log(Math.max(1e-6, Math.random())));
+                    const angle = Math.random() * Math.PI * 2;
+                    x = knot.x + Math.cos(angle) * radius * knot.width;
+                    y = knot.y + Math.sin(angle) * radius * knot.height;
+                } else {
+                    x = (Math.random() - 0.5) * 4.8;
+                    y = (Math.random() - 0.5) * 1.5;
+                    if (population < 0.57) {
+                        const warp = (densityNoise(x * 5, 9) - 0.5) * 0.14;
+                        y = x * 0.38 + warp + (Math.random() + Math.random() - 1) * 0.26;
+                    }
+                }
+            } while (Math.random() > 0.3 + densityNoise(x * 12, y * 15) * 0.7);
             positions[i * 3] = x * -depth;
             positions[i * 3 + 1] = y * -depth;
             positions[i * 3 + 2] = depth;
@@ -199,8 +241,15 @@ import * as THREE from 'three';
             phases[i] = Math.random() * Math.PI * 2;
             const lane = y - x * 0.38 + Math.sin(x * 9) * 0.025;
             const extinction = 1 - 0.65 * Math.exp(-lane * lane / 0.0015);
-            footprints[i] = footprint;
-            brightness[i] = luminosity * (isFlare ? 0.9 : 0.2 + Math.pow(Math.random(), 2.5) * 0.95) * extinction;
+            const rank = Math.random();
+            // Mostly faint points, a readable middle range, and rare bright cores.
+            const light = rank < 0.65
+                ? 0.07 + Math.pow(rank / 0.65, 1.4) * 0.28
+                : rank < 0.97 ? 0.4 + (rank - 0.65) / 0.32 * 0.65
+                : 1.05 + (rank - 0.97) / 0.03 * 0.2;
+            footprints[i] = footprint * (0.7 + 0.7 * Math.sqrt(rank))
+                * (0.9 + Math.random() * 0.2) * (inKnot ? 0.8 : 1);
+            brightness[i] = luminosity * (isFlare ? 0.9 : light) * extinction * (inKnot ? 0.85 : 1);
         }
 
         geom.setAttribute('position', new THREE.BufferAttribute(positions, 3));
@@ -219,8 +268,8 @@ import * as THREE from 'three';
 
     // Abundant fine light, a middle field, and a few brilliant anchors. Keep
     // prominent stars sparse so their halos do not wash out the smaller points.
-    buildStarField(12000, -6000, -2800, 1.0, 1.6, 0.0, 0.48, 1.8);
-    buildStarField(24000, -1800, -900, 1.2, 2.0, 0.0);
+    buildStarField(15000, -6000, -2800, 1.0, 1.6, 0.0, 0.48, 1.8);
+    buildStarField(27000, -1800, -900, 1.2, 2.0, 0.0);
     buildStarField(5000, -900, -500, 2.0, 3.2, 0.003);
     buildStarField(130, -550, -350, 3.0, 5.5, 0.08);
     buildStarField(24, -550, -350, 7.0, 10.0, 0.15);
