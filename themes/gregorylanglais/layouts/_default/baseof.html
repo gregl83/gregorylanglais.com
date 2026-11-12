@@ -1,11 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
     {{- partial "head.html" . -}}
-    <body class="d-flex flex-column vh-100 overflow-hidden">
-        {{- partial "header.html" . -}}
-        <div id="content" class="flex-grow-1 d-flex flex-column justify-content-center overflow-hidden">
-            {{- block "main" . }}{{- end }}
+    <body class="overflow-hidden">
+        <canvas id="space-canvas" aria-hidden="true"></canvas>
+        <div id="parallax-foreground">
+            {{- partial "header.html" . -}}
+            <div id="content">
+                {{- block "main" . }}{{- end }}
+            </div>
+            {{- partial "footer.html" . -}}
         </div>
-        {{- partial "footer.html" . -}}
     </body>
 </html>

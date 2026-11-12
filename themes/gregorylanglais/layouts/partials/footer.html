@@ -1,9 +1,11 @@
 {{ $currentYear := now.Year }}
-<footer class="footer text-center pb-3 flex-shrink-0">
-    <div class="text-center">© {{ $currentYear }} {{ .Site.Params.Organization }} all rights reserved.</div>
+<footer class="footer fixed-bottom text-center pb-3">
+    <div>© {{ $currentYear }} {{ .Site.Params.Organization }} all rights reserved.</div>
     <!-- JavaScript and dependencies -->
     {{ $bootstrap := resources.Get "js/bootstrap.bundle.min.js" }}
     {{ $jquery := resources.Get "js/jquery.slim.js" }}
     {{ $js := slice $bootstrap $jquery | resources.Concat "js/bundle.js" | resources.Minify }}
     <script src="{{$js.RelPermalink}}"></script>
+    {{ $starscape := resources.Get "js/starscape.js" | js.Build (dict "minify" true "targetPath" "js/starscape.min.js") }}
+    <script src="{{$starscape.RelPermalink}}" defer></script>
 </footer>

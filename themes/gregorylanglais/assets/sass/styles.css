@@ -7,6 +7,8 @@ body {
     margin: 0;
     padding: 0;
     overflow: hidden;
+    background-color: #000000;
+    color: #f8fafc;
     scrollbar-width: none;
     -ms-overflow-style: none;
 }
@@ -17,54 +19,77 @@ body::-webkit-scrollbar {
 }
 
 body {
-    display: flex;
-    flex-direction: column;
-    min-height: 100%;
-    min-height: 100vh;
-    min-height: 100dvh;
-    max-height: 100dvh;
+    position: relative;
+    background-color: #000000;
 }
 
+/* Background Space Canvas - Deepest Layer */
+#space-canvas {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    width: 100dvw;
+    height: 100vh;
+    height: 100dvh;
+    z-index: 0;
+    pointer-events: none;
+    background-color: #000000;
+}
+
+/* Foreground Container - Top Layer */
+#parallax-foreground {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    height: 100%;
+    min-height: 100vh;
+    min-height: 100dvh;
+    pointer-events: none;
+}
+
+header,
+#content,
+footer.footer {
+    pointer-events: auto;
+}
+
+/* Header Styling */
 header {
-    flex-shrink: 0;
+    z-index: 10;
+    will-change: transform;
 }
 
 header a:link,
 header a:visited,
 header a:hover,
 header a:active {
-    color: #000000;
+    color: #ffffff;
     text-decoration: none !important;
 }
 
 header h1 {
-    font-size: clamp(1.75rem, 5vw, 2.5rem);
+    font-size: 2.5rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
     margin: 0;
+    color: #ffffff;
+    text-shadow: 0 0 25px rgba(255, 255, 255, 0.4), 0 2px 4px rgba(0, 0, 0, 0.9);
 }
 
 header h6 {
-    font-size: clamp(0.85rem, 2.5vw, 1rem);
-    max-width: 320px;
-    margin: 1rem auto;
+    font-size: 1rem;
+    font-weight: 400;
+    letter-spacing: 0.04em;
+    max-width: 300px;
+    margin: 1.5rem auto;
+    color: #cbd5e1;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.9);
 }
 
+/* Social & Referral Icons in the Foreground */
 #content {
-    flex: 1 1 auto;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-}
-
-main.list,
-main.single {
-    padding-top: 1rem;
-}
-
-main.list #title,
-main.single #title {
-    margin-top: 1rem;
-    text-align: center;
+    will-change: transform;
 }
 
 .social a:link.share,
@@ -73,34 +98,102 @@ main.single #title {
 .social a:active.share {
     margin: 0 5px;
     text-decoration: none;
+    display: inline-block;
+    transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .social a.share svg,
 .social a.share img {
-    width: clamp(44px, 8vw, 64px);
-    height: clamp(44px, 8vw, 64px);
+    width: 64px;
+    height: 64px;
+    transition: filter 0.2s ease, opacity 0.2s ease, fill 0.2s ease, transform 0.2s ease;
 }
 
 .social a:link.share svg,
 .social a:visited.share svg {
     fill: #a8a8a8;
+    filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.9));
 }
 
 .social a:link.share img,
 .social a:visited.share img {
-    opacity: .34;
+    filter: invert(1) brightness(0.85) drop-shadow(0 2px 8px rgba(0, 0, 0, 0.9));
+    opacity: 0.65;
 }
 
 .social a:hover.share svg,
 .social a:active.share svg {
-    fill: #000000;
+    fill: #ffffff;
+    filter: drop-shadow(0 0 18px rgba(255, 255, 255, 0.9)) drop-shadow(0 0 30px rgba(160, 200, 255, 0.6));
+    transform: translateY(-3px) scale(1.05);
 }
 
 .social a:hover.share img,
 .social a:active.share img {
+    filter: invert(1) brightness(1.2) drop-shadow(0 0 18px rgba(255, 255, 255, 0.9)) drop-shadow(0 0 30px rgba(160, 200, 255, 0.6));
     opacity: 1;
+    transform: translateY(-3px) scale(1.05);
 }
 
+/* Footer Styling */
 footer.footer {
-    flex-shrink: 0;
+    z-index: 10;
+    color: #94a3b8;
+    font-size: 0.9rem;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+    will-change: transform;
+}
+
+/* Inner pages: list and single */
+main.list,
+main.single {
+    padding-top: 24px;
+    color: #e2e8f0;
+}
+
+main.list #title,
+main.single #title {
+    margin-top: 6rem;
+    text-align: center;
+    color: #ffffff;
+    border-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+main.list a.link-secondary {
+    color: #93c5fd !important;
+    transition: color 0.2s ease, text-shadow 0.2s ease;
+}
+
+main.list a.link-secondary:hover {
+    color: #ffffff !important;
+    text-shadow: 0 0 10px rgba(255, 255, 255, 0.7);
+}
+
+main h3 {
+    color: #f1f5f9;
+}
+
+main h3 a {
+    color: #60a5fa;
+    text-decoration: underline;
+}
+
+main h3 a:hover {
+    color: #ffffff;
+}
+
+/* Responsive adjustments for mobile screens */
+@media (max-width: 576px) {
+    header h1 {
+        font-size: 2rem;
+    }
+    header h6 {
+        font-size: 0.9rem;
+        margin: 1rem auto;
+    }
+    .social a.share svg,
+    .social a.share img {
+        width: 50px;
+        height: 50px;
+    }
 }
