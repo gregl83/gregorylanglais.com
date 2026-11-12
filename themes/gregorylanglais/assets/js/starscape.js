@@ -14,7 +14,6 @@ import * as THREE from 'three';
 
     // 1. Scene, Camera & Renderer Setup
     const scene = new THREE.Scene();
-    scene.fog = new THREE.FogExp2(0x000000, 0.0007);
 
     const camera = new THREE.PerspectiveCamera(55, canvas.clientWidth / canvas.clientHeight, 1, 3000);
     camera.position.set(0, 0, 0);
@@ -45,6 +44,7 @@ import * as THREE from 'three';
         attribute float aTwinklePhase;
         attribute float aBrightness;
         attribute float aFlare;
+        attribute float aShimmer;
 
         varying vec3 vColor;
         varying float vAlpha;
@@ -60,16 +60,16 @@ import * as THREE from 'three';
             float pulseFast = sin(t * 2.1 + 1.3) * 0.25 + 0.25;
             float combined = mix(pulse, pulseFast, 0.35);
 
-            float intensity = aBrightness * (0.6 + 0.4 * combined);
+            float intensity = aBrightness * (1.0 - aShimmer * (1.0 - combined));
             vAlpha = intensity;
 
             vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
             gl_Position = projectionMatrix * mvPosition;
 
-            float sizeScale = (aFlare > 0.5) ? (1.0 + 0.3 * combined) : (0.85 + 0.25 * combined);
+            float sizeScale = 1.0 + aFlare * aShimmer * combined * 0.12;
             // Attenuate point size by distance into negative Z
             gl_PointSize = aSize * uPixelRatio * sizeScale * (450.0 / -mvPosition.z);
-            gl_PointSize = max(gl_PointSize, 1.2);
+            gl_PointSize = max(gl_PointSize, 1.3 * uPixelRatio);
         }
     `;
 
@@ -134,9 +134,8 @@ import * as THREE from 'three';
     }
 
     // 3. Create Starfield in the DEEP Background (z = -350 to -1800)
-    const starLayers = [];
 
-    function buildStarField(count, zMin, zMax, sizeMin, sizeMax, flareRatio, rotSpeed, parallaxCoeff) {
+    function buildStarField(count, zMin, zMax, sizeMin, sizeMax, flareRatio) {
         const geom = new THREE.BufferGeometry();
         const positions = new Float32Array(count * 3);
         const colors = new Float32Array(count * 3);
@@ -145,15 +144,20 @@ import * as THREE from 'three';
         const phases = new Float32Array(count);
         const brightness = new Float32Array(count);
         const flares = new Float32Array(count);
+        const shimmer = new Float32Array(count);
 
         for (let i = 0; i < count; i++) {
-            // Spread across wide background frustum
             const depth = zMin + Math.random() * (zMax - zMin);
-            const spreadFactor = Math.abs(depth) * 0.75;
-
-            positions[i * 3]     = (Math.random() - 0.5) * spreadFactor * 2.2;
-            positions[i * 3 + 1] = (Math.random() - 0.5) * spreadFactor * 1.4;
-            positions[i * 3 + 2] = depth; // Strictly negative Z (in the background)
+            // Angular coordinates keep the dust band aligned across all depths.
+            // Overscan leaves room for landscape viewports and camera translation.
+            const x = (Math.random() - 0.5) * 4.8;
+            let y = (Math.random() - 0.5) * 1.5;
+            if (Math.random() < 0.35) {
+                y = x * 0.38 + (Math.random() + Math.random() - 1) * 0.22;
+            }
+            positions[i * 3] = x * -depth;
+            positions[i * 3 + 1] = y * -depth;
+            positions[i * 3 + 2] = depth;
 
             const col = getRandomColor();
             colors[i * 3]     = col.r;
@@ -164,9 +168,12 @@ import * as THREE from 'three';
             flares[i] = isFlare ? 1.0 : 0.0;
             sizes[i] = isFlare ? (sizeMax * 1.4) : (sizeMin + Math.random() * (sizeMax - sizeMin));
 
-            speeds[i] = 1.2 + Math.random() * 2.8;
+            speeds[i] = 0.25 + Math.random() * 0.65;
+            shimmer[i] = prefersReducedMotion ? 0 : (Math.random() < 0.18 ? 0.12 + Math.random() * 0.18 : 0);
             phases[i] = Math.random() * Math.PI * 2;
-            brightness[i] = isFlare ? (0.8 + Math.random() * 0.4) : (0.4 + Math.random() * 0.6);
+            const lane = y - x * 0.38 + Math.sin(x * 9) * 0.025;
+            const extinction = 1 - 0.65 * Math.exp(-lane * lane / 0.0015);
+            brightness[i] = (isFlare ? 0.9 : 0.22 + Math.pow(Math.random(), 3) * 0.75) * extinction;
         }
 
         geom.setAttribute('position', new THREE.BufferAttribute(positions, 3));
@@ -176,81 +183,161 @@ import * as THREE from 'three';
         geom.setAttribute('aTwinklePhase', new THREE.BufferAttribute(phases, 1));
         geom.setAttribute('aBrightness', new THREE.BufferAttribute(brightness, 1));
         geom.setAttribute('aFlare', new THREE.BufferAttribute(flares, 1));
+        geom.setAttribute('aShimmer', new THREE.BufferAttribute(shimmer, 1));
 
         const points = new THREE.Points(geom, starMaterial);
         scene.add(points);
-        starLayers.push({ obj: points, rotSpeed, parallaxCoeff });
     }
 
-    // Deepest cosmos: 4,500 distant pinpoints (z = -900 to -1800)
-    buildStarField(4500, -1800, -900, 1.2, 2.0, 0.0, 0.00004, 0.003);
+    // A faint unresolved field, a smaller middle layer, and rare bright anchors.
+    buildStarField(12000, -1800, -900, 1.2, 2.0, 0.0);
+    buildStarField(3000, -900, -500, 2.0, 3.2, 0.003);
+    buildStarField(90, -550, -350, 3.0, 5.5, 0.12);
 
-    // Midground stars: 1,800 stars (z = -500 to -900)
-    buildStarField(1800, -900, -500, 2.0, 3.2, 0.02, 0.00008, 0.008);
+    // 4. Distant, irregular dust. A single plane avoids circular cloud sprites
+    // and uses the same angular coordinates as the star density above.
+    const dustMaterial = new THREE.ShaderMaterial({
+        depthWrite: false,
+        vertexShader: `
+            varying vec2 vSky;
+            void main() {
+                vSky = position.xy / 2100.0;
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            }
+        `,
+        fragmentShader: `
+            varying vec2 vSky;
+            float hash(vec2 p) {
+                return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+            }
+            float noise(vec2 p) {
+                vec2 i = floor(p), f = fract(p);
+                f = f * f * (3.0 - 2.0 * f);
+                return mix(mix(hash(i), hash(i + vec2(1, 0)), f.x),
+                           mix(hash(i + vec2(0, 1)), hash(i + vec2(1, 1)), f.x), f.y);
+            }
+            float fbm(vec2 p) {
+                float value = 0.0, amplitude = 0.5;
+                for (int i = 0; i < 4; i++) {
+                    value += amplitude * noise(p);
+                    p = mat2(1.6, -1.2, 1.2, 1.6) * p + 7.3;
+                    amplitude *= 0.5;
+                }
+                return value;
+            }
+            void main() {
+                vec2 p = vSky;
+                float structure = fbm(p * 8.0);
+                float band = p.y - p.x * 0.38;
+                float haze = exp(-pow((band + (structure - 0.5) * 0.18) / 0.17, 2.0));
+                float lane = band + sin(p.x * 9.0) * 0.025 + (structure - 0.5) * 0.045;
+                float dust = exp(-lane * lane / 0.0015);
+                float wisps = fbm(p * 28.0 + 31.0);
+                vec3 tint = mix(vec3(0.018, 0.028, 0.043), vec3(0.055, 0.035, 0.021), structure);
+                vec3 color = tint * 1.8 * haze * (0.25 + wisps) * (1.0 - dust * 0.9);
+                gl_FragColor = vec4(color, 1.0);
+            }
+        `
+    });
+    const dust = new THREE.Mesh(new THREE.PlaneGeometry(13000, 6500), dustMaterial);
+    dust.position.z = -2100;
+    scene.add(dust);
 
-    // Glistening stars: 120 stars with diffraction spikes (z = -350 to -550)
-    buildStarField(120, -550, -350, 4.0, 6.0, 0.9, 0.00012, 0.015);
-
-    // 4. Subtle Interstellar Cosmic Nebula (z = -1200)
-    function buildNebula() {
-        const count = 35;
-        const geom = new THREE.BufferGeometry();
-        const pos = new Float32Array(count * 3);
-        const col = new Float32Array(count * 3);
-        const sz = new Float32Array(count);
-
-        const nebulaColors = [
-            new THREE.Color('#0b1029'), // Deep indigo
-            new THREE.Color('#140b2b'), // Midnight violet
-            new THREE.Color('#071724')  // Cosmic cyan
-        ];
-
-        for (let i = 0; i < count; i++) {
-            pos[i * 3]     = (Math.random() - 0.5) * 1600;
-            pos[i * 3 + 1] = (Math.random() - 0.5) * 1000;
-            pos[i * 3 + 2] = -1000 - Math.random() * 800; // Deepest background
-
-            const c = nebulaColors[Math.floor(Math.random() * nebulaColors.length)];
-            col[i * 3]     = c.r;
-            col[i * 3 + 1] = c.g;
-            col[i * 3 + 2] = c.b;
-
-            sz[i] = 450 + Math.random() * 350;
-        }
-
-        geom.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-        geom.setAttribute('color', new THREE.BufferAttribute(col, 3));
-        geom.setAttribute('size', new THREE.BufferAttribute(sz, 1));
-
-        const cloudCanvas = document.createElement('canvas');
-        cloudCanvas.width = 128;
-        cloudCanvas.height = 128;
-        const ctx = cloudCanvas.getContext('2d');
-        const grad = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
-        grad.addColorStop(0, 'rgba(255, 255, 255, 0.35)');
-        grad.addColorStop(0.4, 'rgba(255, 255, 255, 0.15)');
-        grad.addColorStop(0.8, 'rgba(255, 255, 255, 0.03)');
-        grad.addColorStop(1, 'rgba(255, 255, 255, 0)');
-        ctx.fillStyle = grad;
-        ctx.fillRect(0, 0, 128, 128);
-
-        const cloudTexture = new THREE.CanvasTexture(cloudCanvas);
-
-        const cloudMat = new THREE.PointsMaterial({
-            size: 450,
-            map: cloudTexture,
-            vertexColors: true,
-            transparent: true,
-            opacity: 0.22,
-            blending: THREE.AdditiveBlending,
-            depthWrite: false
-        });
-
-        const nebula = new THREE.Points(geom, cloudMat);
-        scene.add(nebula);
-        starLayers.push({ obj: nebula, rotSpeed: 0.00002, parallaxCoeff: 0.002 });
+    // Sparse deep-field galaxies: one instanced draw, with steady light and
+    // fixed orientations. Their greater distance gives them the least parallax.
+    const galaxyCount = 90;
+    const galaxyGeometry = new THREE.PlaneGeometry(1, 1);
+    const kinds = new Float32Array(galaxyCount);
+    const tones = new Float32Array(galaxyCount * 3);
+    const intensities = new Float32Array(galaxyCount);
+    const galaxyPalette = [
+        new THREE.Color('#e6b88c'), new THREE.Color('#c58e74'),
+        new THREE.Color('#adc3db'), new THREE.Color('#d6c7b0')
+    ];
+    const galaxyMaterial = new THREE.ShaderMaterial({
+        transparent: true,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        vertexShader: `
+            attribute float aKind;
+            attribute vec3 aTone;
+            attribute float aIntensity;
+            varying vec2 vUv;
+            varying float vKind;
+            varying vec3 vTone;
+            varying float vIntensity;
+            void main() {
+                vUv = uv;
+                vKind = aKind;
+                vTone = aTone;
+                vIntensity = aIntensity;
+                gl_Position = projectionMatrix * modelViewMatrix * instanceMatrix * vec4(position, 1.0);
+            }
+        `,
+        fragmentShader: `
+            varying vec2 vUv;
+            varying float vKind;
+            varying vec3 vTone;
+            varying float vIntensity;
+            void main() {
+                vec2 p = (vUv - 0.5) * 2.0;
+                float core = exp(-dot(p, p) * 110.0);
+                float light;
+                if (vKind < 0.5) {
+                    // Elliptical: smooth warm halo and concentrated nucleus.
+                    float r = length(p * vec2(1.0, 1.65));
+                    light = exp(-r * 6.0) * 0.55 + core * 0.45;
+                } else if (vKind < 1.5) {
+                    // Edge-on disk, with a narrow absorbing seam.
+                    float r = length(p * vec2(1.0, 5.0));
+                    float seam = 1.0 - 0.65 * exp(-pow((p.y - 0.015) * 65.0, 2.0));
+                    light = (exp(-r * 5.0) * 0.7 + core * 0.3) * seam;
+                } else if (vKind < 2.5) {
+                    // A quiet two-armed spiral; only the larger disks resolve it.
+                    vec2 q = p * vec2(1.0, 1.35);
+                    float r = length(q);
+                    float arms = pow(0.5 + 0.5 * cos(atan(q.y, q.x) * 2.0 - log(r + 0.03) * 5.0), 4.0);
+                    light = exp(-r * 5.0) * (0.14 + arms * 0.5) + core * 0.65;
+                } else {
+                    // Small, asymmetric patches of unresolved distant light.
+                    vec2 a = p - vec2(0.09, 0.025);
+                    vec2 b = p + vec2(0.14, 0.06);
+                    light = exp(-dot(a, a) * 65.0) * 0.45
+                          + exp(-dot(b, b) * 90.0) * 0.25
+                          + exp(-dot(p, p) * 14.0) * 0.1;
+                }
+                float edge = 1.0 - smoothstep(0.65, 1.0, length(p));
+                vec3 color = mix(vTone, vec3(1.0, 0.95, 0.88), core * 0.35);
+                gl_FragColor = vec4(color, light * edge * vIntensity);
+            }
+        `
+    });
+    const galaxies = new THREE.InstancedMesh(galaxyGeometry, galaxyMaterial, galaxyCount);
+    const galaxyTransform = new THREE.Object3D();
+    for (let i = 0; i < galaxyCount; i++) {
+        const depth = 2350 + Math.random() * 450;
+        // Stratified placement avoids accidentally crowding one part of the sky.
+        const x = ((i % 15 + 0.2 + Math.random() * 0.6) / 15 - 0.5) * 4.8;
+        const y = ((Math.floor(i / 15) + 0.2 + Math.random() * 0.6) / 6 - 0.5) * 1.3;
+        const prominent = i % 19 === 0;
+        const size = prominent ? 95 : 22 + Math.random() * 40;
+        galaxyTransform.position.set(x * depth, y * depth, -depth);
+        galaxyTransform.rotation.z = Math.random() * Math.PI * 2;
+        galaxyTransform.scale.setScalar(size);
+        galaxyTransform.updateMatrix();
+        galaxies.setMatrixAt(i, galaxyTransform.matrix);
+        const kind = Math.random();
+        kinds[i] = kind < 0.4 ? 0 : kind < 0.7 ? 1 : kind < 0.85 ? 2 : 3;
+        // Give the few larger objects enough structure to recognize their shapes.
+        if (prominent) kinds[i] = i % 2 === 0 ? 2 : 1;
+        const tone = galaxyPalette[Math.floor(Math.random() * galaxyPalette.length)];
+        tone.toArray(tones, i * 3);
+        intensities[i] = prominent ? 0.75 : 0.2 + Math.random() * 0.35;
     }
-    buildNebula();
+    galaxyGeometry.setAttribute('aKind', new THREE.InstancedBufferAttribute(kinds, 1));
+    galaxyGeometry.setAttribute('aTone', new THREE.InstancedBufferAttribute(tones, 3));
+    galaxyGeometry.setAttribute('aIntensity', new THREE.InstancedBufferAttribute(intensities, 1));
+    scene.add(galaxies);
 
     // 5. Periodic Shooting Stars (Meteors) in Deep Background
     const meteorMat = new THREE.LineBasicMaterial({
@@ -333,38 +420,59 @@ import * as THREE from 'three';
         touchStartY: 0
     };
 
-    // Foreground DOM references
-    const headerEl = document.querySelector('header');
-    const contentEl = document.querySelector('#content .container') || document.getElementById('content');
-    const footerEl = document.querySelector('footer.footer');
-
-    // Desktop Mouse Move
-    window.addEventListener('mousemove', (e) => {
-        pointer.targetX = (e.clientX / window.innerWidth) * 2 - 1;
-        pointer.targetY = -(e.clientY / window.innerHeight) * 2 + 1;
-    }, { passive: true });
-
-    // Mobile Gyroscope (Device Tilt)
+    // Mouse input describes a viewpoint shift; device sensors describe rotation.
+    // Keep these separate instead of interpreting both as camera translation.
+    const rig = { mode: 'mouse', yaw: 0, pitch: 0, roll: 0 };
+    const targetRotation = new THREE.Quaternion();
+    const rigEuler = new THREE.Euler(0, 0, 0, 'YXZ');
+    const deviceEuler = new THREE.Euler(0, 0, 0, 'YXZ');
+    const deviceRotation = new THREE.Quaternion();
+    const relativeRotation = new THREE.Quaternion();
+    const deviceToCamera = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI / 2);
+    const screenRotation = new THREE.Quaternion();
+    const screenAxis = new THREE.Vector3(0, 0, 1);
+    const radians = THREE.MathUtils.degToRad;
+    const clamp = THREE.MathUtils.clamp;
     let orientationOrigin = null;
     let touchActive = false;
+    let lastTouchTime = -Infinity;
+
+    window.addEventListener('pointermove', (e) => {
+        if (e.pointerType !== 'mouse' || performance.now() - lastTouchTime < 1000) return;
+        rig.mode = 'mouse';
+        pointer.targetX = clamp((e.clientX / canvas.clientWidth) * 2 - 1, -1, 1);
+        pointer.targetY = clamp(1 - (e.clientY / canvas.clientHeight) * 2, -1, 1);
+    }, { passive: true });
+    document.documentElement.addEventListener('pointerleave', (e) => {
+        if (e.pointerType !== 'mouse' || rig.mode !== 'mouse') return;
+        pointer.targetX = 0;
+        pointer.targetY = 0;
+    }, { passive: true });
 
     function handleOrientation(e) {
-        if (!Number.isFinite(e.gamma) || !Number.isFinite(e.beta)) return;
-        if (!orientationOrigin) {
-            orientationOrigin = { gamma: e.gamma, beta: e.beta };
-        }
-        if (touchActive || prefersReducedMotion) return;
-
-        // Calibrate to the user's resting position and rotate into screen axes.
-        const angle = (window.screen.orientation?.angle ?? window.orientation ?? 0) * Math.PI / 180;
-        const x = ((e.gamma - orientationOrigin.gamma + 540) % 360) - 180;
-        const y = ((e.beta - orientationOrigin.beta + 540) % 360) - 180;
-        pointer.targetX = Math.max(-1, Math.min(1, (x * Math.cos(angle) + y * Math.sin(angle)) / 30));
-        pointer.targetY = Math.max(-1, Math.min(1, (y * Math.cos(angle) - x * Math.sin(angle)) / 30));
+        if (!Number.isFinite(e.gamma) || !Number.isFinite(e.beta) || prefersReducedMotion || touchActive) return;
+        const angle = window.screen.orientation?.angle ?? window.orientation ?? 0;
+        // Compose rotations before taking a relative pose. This handles heading
+        // wraparound and couples tilt axes correctly in portrait and landscape.
+        deviceEuler.set(radians(e.beta), radians(Number.isFinite(e.alpha) ? e.alpha : 0), -radians(e.gamma), 'YXZ');
+        deviceRotation.setFromEuler(deviceEuler);
+        deviceRotation.multiply(deviceToCamera);
+        screenRotation.setFromAxisAngle(screenAxis, -radians(angle));
+        deviceRotation.multiply(screenRotation);
+        if (!orientationOrigin) orientationOrigin = deviceRotation.clone().invert();
+        relativeRotation.copy(orientationOrigin).multiply(deviceRotation);
+        rigEuler.setFromQuaternion(relativeRotation, 'YXZ');
+        rig.mode = 'tilt';
+        // A restrained window into the sky, with a small roll component. Bound
+        // horizontal travel on narrow screens so it never sweeps a whole screen.
+        rig.yaw = clamp(rigEuler.y * 0.45, -0.12, 0.12) * Math.min(1, camera.aspect);
+        rig.pitch = clamp(rigEuler.x * 0.45, -0.10, 0.10);
+        rig.roll = clamp(rigEuler.z * 0.08, -0.025, 0.025);
     }
 
     function resetOrientation() {
         orientationOrigin = null;
+        rig.yaw = rig.pitch = rig.roll = 0;
         pointer.targetX = 0;
         pointer.targetY = 0;
     }
@@ -395,6 +503,8 @@ import * as THREE from 'three';
     window.addEventListener('touchstart', (e) => {
         if (e.touches.length > 0) {
             touchActive = true;
+            lastTouchTime = performance.now();
+            rig.mode = 'touch';
             pointer.touchStartX = e.touches[0].clientX;
             pointer.touchStartY = e.touches[0].clientY;
         }
@@ -402,6 +512,7 @@ import * as THREE from 'three';
 
     window.addEventListener('touchmove', (e) => {
         if (prefersReducedMotion || e.touches.length === 0) return;
+        rig.mode = 'touch';
         const dx = (e.touches[0].clientX - pointer.touchStartX) / window.innerWidth;
         const dy = (e.touches[0].clientY - pointer.touchStartY) / window.innerHeight;
 
@@ -413,7 +524,8 @@ import * as THREE from 'three';
 
     function endTouch() {
         touchActive = false;
-        orientationOrigin = null;
+        lastTouchTime = performance.now();
+        resetOrientation();
     }
     window.addEventListener('touchend', endTouch, { passive: true });
     window.addEventListener('touchcancel', endTouch, { passive: true });
@@ -440,52 +552,47 @@ import * as THREE from 'three';
     function animate() {
         animationFrameId = requestAnimationFrame(animate);
 
-        const elapsedTime = clock.getElapsedTime();
+        const delta = Math.min(clock.getDelta(), 0.1);
+        const elapsedTime = clock.elapsedTime;
         const now = performance.now();
-        commonUniforms.uTime.value = elapsedTime;
+        commonUniforms.uTime.value = prefersReducedMotion ? 0 : elapsedTime;
 
         // Smooth damping
-        const lerpFactor = 0.05;
+        const lerpFactor = 1 - Math.exp(-delta * 16);
         pointer.currentX += (pointer.targetX - pointer.currentX) * lerpFactor;
         pointer.currentY += (pointer.targetY - pointer.currentY) * lerpFactor;
 
-        // Ambient celestial drift
-        const driftX = prefersReducedMotion ? 0 : Math.sin(elapsedTime * 0.18) * 0.08;
-        const driftY = prefersReducedMotion ? 0 : Math.cos(elapsedTime * 0.14) * 0.05;
-
-        const totalX = pointer.currentX + driftX;
-        const totalY = pointer.currentY + driftY;
-
-        // A) DEEPEST LAYER: Background Space Camera & Stars
-        camera.position.x = -totalX * 22;
-        camera.position.y = -totalY * 16;
-        camera.lookAt(0, 0, -600);
-
-        for (let i = 0; i < starLayers.length; i++) {
-            const layer = starLayers[i];
-            if (!prefersReducedMotion) {
-                layer.obj.rotation.y += layer.rotSpeed;
-                layer.obj.rotation.x = totalY * layer.parallaxCoeff;
-                layer.obj.rotation.y = totalX * layer.parallaxCoeff + (elapsedTime * layer.rotSpeed);
+        // Life belongs to the sky, not the controls. Ambient motion is a very
+        // slow angular drift shared by the entire scene, not independent layers.
+        const driftYaw = Math.sin(elapsedTime * 0.07) * 0.0007;
+        const driftPitch = Math.sin(elapsedTime * 0.05) * 0.0004;
+        let yaw, pitch, roll = 0;
+        let shiftX = 0, shiftY = 0;
+        if (rig.mode === 'tilt') {
+            yaw = rig.yaw;
+            pitch = rig.pitch;
+        } else {
+            // Desktop: a small lean plus translation gives nearer stars extra
+            // displacement. Touch drag is a rotation-led fallback for no sensor.
+            const dragging = rig.mode === 'touch';
+            yaw = -pointer.currentX * (dragging ? 0.06 * Math.min(1, camera.aspect) : 0.008);
+            pitch = pointer.currentY * (dragging ? 0.05 : 0.006);
+            if (!dragging) {
+                shiftX = pointer.currentX * 10 * Math.min(camera.aspect, 2);
+                shiftY = pointer.currentY * 7;
             }
         }
-
-        if (!prefersReducedMotion) {
+        if (rig.mode === 'tilt') roll = rig.roll;
+        rigEuler.set(pitch + driftPitch, yaw + driftYaw, roll, 'YXZ');
+        targetRotation.setFromEuler(rigEuler);
+        if (prefersReducedMotion) {
+            camera.position.set(0, 0, 0);
+            camera.quaternion.identity();
+        } else {
+            camera.quaternion.slerp(targetRotation, 1 - Math.exp(-delta * 18));
+            camera.position.x += (shiftX - camera.position.x) * (1 - Math.exp(-delta * 16));
+            camera.position.y += (shiftY - camera.position.y) * (1 - Math.exp(-delta * 16));
             updateMeteor(now);
-        }
-
-        // B) FOREGROUND LAYER: Parallax displacement on HTML UI elements
-        if (!prefersReducedMotion) {
-            if (contentEl) {
-                // Central referral icons move with foreground parallax
-                contentEl.style.transform = `translate3d(${totalX * 14}px, ${-totalY * 10}px, 0)`;
-            }
-            if (headerEl) {
-                headerEl.style.transform = `translate3d(${totalX * 7}px, ${-totalY * 5}px, 0)`;
-            }
-            if (footerEl) {
-                footerEl.style.transform = `translate3d(${totalX * 4}px, ${-totalY * 3}px, 0)`;
-            }
         }
 
         renderer.render(scene, camera);
