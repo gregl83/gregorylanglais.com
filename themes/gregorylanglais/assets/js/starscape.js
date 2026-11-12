@@ -15,7 +15,7 @@ import * as THREE from 'three';
     // 1. Scene, Camera & Renderer Setup
     const scene = new THREE.Scene();
 
-    const camera = new THREE.PerspectiveCamera(55, canvas.clientWidth / canvas.clientHeight, 1, 3000);
+    const camera = new THREE.PerspectiveCamera(55, canvas.clientWidth / canvas.clientHeight, 1, 18000);
     camera.position.set(0, 0, 0);
 
     const renderer = new THREE.WebGLRenderer({
@@ -45,14 +45,17 @@ import * as THREE from 'three';
         attribute float aBrightness;
         attribute float aFlare;
         attribute float aShimmer;
+        attribute float aFootprint;
 
         varying vec3 vColor;
         varying float vAlpha;
         varying float vFlare;
+        varying float vHalo;
 
         void main() {
             vColor = aColor;
             vFlare = aFlare;
+            vHalo = smoothstep(2.0, 8.0, aSize);
 
             // Harmonic organic twinkling
             float t = uTime * aTwinkleSpeed + aTwinklePhase;
@@ -68,8 +71,8 @@ import * as THREE from 'three';
 
             float sizeScale = 1.0 + aFlare * aShimmer * combined * 0.12;
             // Attenuate point size by distance into negative Z
-            gl_PointSize = aSize * uPixelRatio * sizeScale * (450.0 / -mvPosition.z);
-            gl_PointSize = max(gl_PointSize, 1.3 * uPixelRatio);
+            gl_PointSize = aSize * 1.8 * uPixelRatio * sizeScale * (450.0 / -mvPosition.z);
+            gl_PointSize = max(gl_PointSize, aFootprint * uPixelRatio);
         }
     `;
 
@@ -77,25 +80,29 @@ import * as THREE from 'three';
         varying vec3 vColor;
         varying float vAlpha;
         varying float vFlare;
+        varying float vHalo;
 
         void main() {
             vec2 coord = gl_PointCoord - vec2(0.5);
             float dist = length(coord);
             if (dist > 0.5) discard;
 
-            // Intense core with smooth Gaussian starlight falloff
-            float core = exp(-dist * 12.0);
-            float glow = exp(-dist * 4.5) * 0.4;
+            // Gaussian optical footprint: a resolved white core, with colored
+            // wings only on larger stars. Tiny stars retain enough pixel coverage
+            // at DPR 1 instead of disappearing between samples.
+            float core = exp(-dist * dist * 28.0);
+            float glow = exp(-dist * dist * 7.0) * 0.16 * vHalo;
             float alpha = core + glow;
 
             // Telescope 4-point optical diffraction spikes on glistening stars
             if (vFlare > 0.5) {
                 float spikeX = max(0.0, 1.0 - abs(coord.y) * 16.0) * exp(-abs(coord.x) * 4.0);
                 float spikeY = max(0.0, 1.0 - abs(coord.x) * 16.0) * exp(-abs(coord.y) * 4.0);
-                alpha += (spikeX + spikeY) * 0.7;
+                alpha += (spikeX + spikeY) * 0.3;
             }
 
-            alpha *= vAlpha;
+            // Fade to zero before the sprite boundary to avoid cut-off halos.
+            alpha *= vAlpha * (1.0 - smoothstep(0.32, 0.5, dist));
 
             // Blend spectral hue with pure white stellar core
             vec3 finalColor = mix(vColor, vec3(1.0, 1.0, 1.0), core * 0.85);
@@ -133,9 +140,9 @@ import * as THREE from 'three';
         return stellarPalette[5]; // Solar gold
     }
 
-    // 3. Create Starfield in the DEEP Background (z = -350 to -1800)
+    // 3. Continuous stellar depth, from nearby anchors to a faint far field.
 
-    function buildStarField(count, zMin, zMax, sizeMin, sizeMax, flareRatio) {
+    function buildStarField(count, zMin, zMax, sizeMin, sizeMax, flareRatio, luminosity = 1, footprint = 2.8) {
         const geom = new THREE.BufferGeometry();
         const positions = new Float32Array(count * 3);
         const colors = new Float32Array(count * 3);
@@ -145,6 +152,7 @@ import * as THREE from 'three';
         const brightness = new Float32Array(count);
         const flares = new Float32Array(count);
         const shimmer = new Float32Array(count);
+        const footprints = new Float32Array(count);
 
         for (let i = 0; i < count; i++) {
             const depth = zMin + Math.random() * (zMax - zMin);
@@ -173,7 +181,8 @@ import * as THREE from 'three';
             phases[i] = Math.random() * Math.PI * 2;
             const lane = y - x * 0.38 + Math.sin(x * 9) * 0.025;
             const extinction = 1 - 0.65 * Math.exp(-lane * lane / 0.0015);
-            brightness[i] = (isFlare ? 0.9 : 0.22 + Math.pow(Math.random(), 3) * 0.75) * extinction;
+            footprints[i] = footprint;
+            brightness[i] = luminosity * (isFlare ? 0.9 : 0.2 + Math.pow(Math.random(), 2.5) * 0.95) * extinction;
         }
 
         geom.setAttribute('position', new THREE.BufferAttribute(positions, 3));
@@ -184,18 +193,22 @@ import * as THREE from 'three';
         geom.setAttribute('aBrightness', new THREE.BufferAttribute(brightness, 1));
         geom.setAttribute('aFlare', new THREE.BufferAttribute(flares, 1));
         geom.setAttribute('aShimmer', new THREE.BufferAttribute(shimmer, 1));
+        geom.setAttribute('aFootprint', new THREE.BufferAttribute(footprints, 1));
 
         const points = new THREE.Points(geom, starMaterial);
         scene.add(points);
     }
 
-    // A faint unresolved field, a smaller middle layer, and rare bright anchors.
-    buildStarField(12000, -1800, -900, 1.2, 2.0, 0.0);
-    buildStarField(3000, -900, -500, 2.0, 3.2, 0.003);
-    buildStarField(90, -550, -350, 3.0, 5.5, 0.12);
+    // Abundant fine light, a middle field, and a few brilliant anchors. Keep
+    // prominent stars sparse so their halos do not wash out the smaller points.
+    buildStarField(12000, -6000, -2800, 1.0, 1.6, 0.0, 0.48, 1.8);
+    buildStarField(24000, -1800, -900, 1.2, 2.0, 0.0);
+    buildStarField(5000, -900, -500, 2.0, 3.2, 0.003);
+    buildStarField(130, -550, -350, 3.0, 5.5, 0.08);
+    buildStarField(24, -550, -350, 7.0, 10.0, 0.15);
 
-    // 4. Distant, irregular dust. A single plane avoids circular cloud sprites
-    // and uses the same angular coordinates as the star density above.
+    // 4. Bake cloud detail once, then sample it at three different distances.
+    // This adds depth without evaluating procedural noise per pixel every frame.
     const dustMaterial = new THREE.ShaderMaterial({
         depthWrite: false,
         vertexShader: `
@@ -228,20 +241,82 @@ import * as THREE from 'three';
             void main() {
                 vec2 p = vSky;
                 float structure = fbm(p * 8.0);
+                float broadStructure = fbm(p * 3.0 + 17.0);
                 float band = p.y - p.x * 0.38;
                 float haze = exp(-pow((band + (structure - 0.5) * 0.18) / 0.17, 2.0));
                 float lane = band + sin(p.x * 9.0) * 0.025 + (structure - 0.5) * 0.045;
                 float dust = exp(-lane * lane / 0.0015);
                 float wisps = fbm(p * 28.0 + 31.0);
                 vec3 tint = mix(vec3(0.018, 0.028, 0.043), vec3(0.055, 0.035, 0.021), structure);
-                vec3 color = tint * 1.8 * haze * (0.25 + wisps) * (1.0 - dust * 0.9);
+                // Broad, low-contrast veils connect fine wisps, while the
+                // absorbing lane and irregular gaps preserve genuinely dark sky.
+                float veil = exp(-pow((band + (broadStructure - 0.5) * 0.4) / 0.32, 2.0));
+                float gaps = smoothstep(0.18, 0.65, broadStructure);
+                vec3 color = tint * (haze * (0.35 + wisps) * 3.8 + veil * gaps * 0.8)
+                           * (1.0 - dust * 0.93);
                 gl_FragColor = vec4(color, 1.0);
             }
         `
     });
-    const dust = new THREE.Mesh(new THREE.PlaneGeometry(13000, 6500), dustMaterial);
-    dust.position.z = -2100;
-    scene.add(dust);
+    const cloudTextureWidth = Math.min(2048, Math.max(1024,
+        Math.ceil(canvas.clientWidth * Math.min(window.devicePixelRatio, 2))));
+    const cloudTarget = new THREE.WebGLRenderTarget(cloudTextureWidth, cloudTextureWidth / 2, {
+        depthBuffer: false,
+        stencilBuffer: false
+    });
+    const cloudBakeScene = new THREE.Scene();
+    const cloudBakeGeometry = new THREE.PlaneGeometry(13000, 6500);
+    cloudBakeScene.add(new THREE.Mesh(cloudBakeGeometry, dustMaterial));
+    const cloudBakeCamera = new THREE.OrthographicCamera(-6500, 6500, 3250, -3250, 0.1, 10);
+    cloudBakeCamera.position.z = 1;
+    renderer.setRenderTarget(cloudTarget);
+    renderer.render(cloudBakeScene, cloudBakeCamera);
+    renderer.setRenderTarget(null);
+    cloudBakeGeometry.dispose();
+    dustMaterial.dispose();
+
+    const cloudGeometry = new THREE.PlaneGeometry(1, 1);
+    function addCloudLayer(depth, strength, offset, tint) {
+        const material = new THREE.ShaderMaterial({
+            uniforms: {
+                uCloud: { value: cloudTarget.texture },
+                uStrength: { value: strength },
+                uOffset: { value: new THREE.Vector2(...offset) },
+                uTint: { value: new THREE.Vector3(...tint) }
+            },
+            transparent: true,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false,
+            vertexShader: `
+                varying vec2 vUv;
+                void main() {
+                    vUv = uv;
+                    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                }
+            `,
+            fragmentShader: `
+                uniform sampler2D uCloud;
+                uniform float uStrength;
+                uniform vec2 uOffset;
+                uniform vec3 uTint;
+                varying vec2 vUv;
+                void main() {
+                    vec2 uv = vUv + uOffset;
+                    float edge = smoothstep(0.0, 0.06, uv.x) * (1.0 - smoothstep(0.94, 1.0, uv.x))
+                               * smoothstep(0.0, 0.06, uv.y) * (1.0 - smoothstep(0.94, 1.0, uv.y));
+                    gl_FragColor = vec4(texture2D(uCloud, uv).rgb * uTint, uStrength * edge);
+                }
+            `
+        });
+        const cloud = new THREE.Mesh(cloudGeometry, material);
+        cloud.position.z = -depth;
+        // Preserve angular coverage; only the perspective displacement changes.
+        cloud.scale.set(depth * 13000 / 2100, depth * 6500 / 2100, 1);
+        scene.add(cloud);
+    }
+    addCloudLayer(1200, 0.18, [-0.035, 0.045], [0.8, 0.9, 1.15]);
+    addCloudLayer(2100, 0.78, [0, 0], [1, 1, 1]);
+    addCloudLayer(4400, 0.22, [0.045, -0.035], [1.08, 0.9, 0.8]);
 
     // Sparse deep-field galaxies: one instanced draw, with steady light and
     // fixed orientations. Their greater distance gives them the least parallax.
@@ -315,12 +390,16 @@ import * as THREE from 'three';
     const galaxies = new THREE.InstancedMesh(galaxyGeometry, galaxyMaterial, galaxyCount);
     const galaxyTransform = new THREE.Object3D();
     for (let i = 0; i < galaxyCount; i++) {
-        const depth = 2350 + Math.random() * 450;
+        // Separate near, middle, and remote galaxies across a much deeper volume.
+        const depth = [6000, 9000, 12500][i % 3] + Math.random() * 1800;
         // Stratified placement avoids accidentally crowding one part of the sky.
         const x = ((i % 15 + 0.2 + Math.random() * 0.6) / 15 - 0.5) * 4.8;
         const y = ((Math.floor(i / 15) + 0.2 + Math.random() * 0.6) / 6 - 0.5) * 1.3;
         const prominent = i % 19 === 0;
-        const size = prominent ? 95 : 22 + Math.random() * 40;
+        // Keep near galaxies recognizable; remote ones resolve as smaller smudges.
+        const apparentSize = (prominent ? 95 : 22 + Math.random() * 40)
+            * (i % 3 === 2 ? 0.65 : 1);
+        const size = apparentSize * depth / 2600;
         galaxyTransform.position.set(x * depth, y * depth, -depth);
         galaxyTransform.rotation.z = Math.random() * Math.PI * 2;
         galaxyTransform.scale.setScalar(size);
@@ -332,7 +411,7 @@ import * as THREE from 'three';
         if (prominent) kinds[i] = i % 2 === 0 ? 2 : 1;
         const tone = galaxyPalette[Math.floor(Math.random() * galaxyPalette.length)];
         tone.toArray(tones, i * 3);
-        intensities[i] = prominent ? 0.75 : 0.2 + Math.random() * 0.35;
+        intensities[i] = prominent ? 0.85 : 0.25 + Math.random() * 0.4;
     }
     galaxyGeometry.setAttribute('aKind', new THREE.InstancedBufferAttribute(kinds, 1));
     galaxyGeometry.setAttribute('aTone', new THREE.InstancedBufferAttribute(tones, 3));
@@ -604,6 +683,11 @@ import * as THREE from 'three';
     window.addEventListener('beforeunload', () => {
         cancelAnimationFrame(animationFrameId);
         viewportObserver.disconnect();
+        cloudTarget.dispose();
+        scene.traverse(object => {
+            if (object.geometry) object.geometry.dispose();
+            if (object.material) object.material.dispose();
+        });
         renderer.dispose();
     });
 })();
