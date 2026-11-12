@@ -8,4 +8,6 @@
     <script src="{{$js.RelPermalink}}"></script>
     {{ $starscape := resources.Get "js/starscape.js" | js.Build (dict "minify" true "targetPath" "js/starscape.min.js") }}
     <script src="{{$starscape.RelPermalink}}" defer></script>
+    {{ $orbit := resources.Get "js/orbit.js" | js.Build (dict "minify" true "targetPath" "js/orbit.min.js") }}
+    <script src="{{$orbit.RelPermalink}}" defer></script>
 </footer>

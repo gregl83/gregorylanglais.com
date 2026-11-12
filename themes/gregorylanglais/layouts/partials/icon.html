@@ -36,3 +36,9 @@
     </svg>
 </a>
 {{ end }}
+{{ if eq (lower .Title) "vigilo" }}
+{{ $vigiloIcon := resources.Get "images/vigilo.svg" }}
+<a href="{{ .Params.website }}" class="share vigilo" target="_blank" rel="noopener noreferrer" aria-label="Agent Vigilo">
+    {{ $vigiloIcon.Content | safeHTML }}
+</a>
+{{ end }}

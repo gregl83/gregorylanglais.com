@@ -1,6 +1,6 @@
 ---
 title: "Flickr"
-weight: 10
+weight: 4
 username: "gregl83"
 keywords: []
 date: 2024-01-15T09:29:20-05:00

@@ -5,13 +5,23 @@
         <div class="row w-100 justify-content-center text-center">
             <div class="col-12">
                 {{ if $referrals }}
-                <ul class="list-unstyled social m-0">
+                <div class="orbit">
+                    <div class="orbit-connectors" aria-hidden="true">
+                        <div class="orbit-trail station-link station-link-1"></div>
+                        <div class="orbit-trail station-link station-link-2"></div>
+                        <div class="orbit-trail station-link station-link-3"></div>
+                        <div class="orbit-trail station-link station-link-4"></div>
+                        <div class="orbit-trail station-link station-link-5"></div>
+                        <div class="orbit-trail station-link station-link-6"></div>
+                    </div>
+                    <ul class="list-unstyled social orbital-icons m-0">
                     {{ range $referrals.ByWeight }}
-                    <li class="d-inline">
+                    <li>
                         {{- partial "icon.html" . -}}
                     </li>
                     {{ end }}
-                </ul>
+                    </ul>
+                </div>
                 {{ end }}
             </div>
         </div>
