@@ -1,0 +1,9 @@
+{{- $profiles := slice -}}
+{{- range (where .Site.RegularPages "Type" "in" .Site.Params.mainSections).ByWeight -}}
+    {{- with .Params.profileurl -}}{{- $profiles = $profiles | append . -}}{{- end -}}
+{{- end -}}
+{{- $person := dict "@type" "Person" "@id" (printf "%s#person" .Site.Home.Permalink) "name" .Site.Title "url" .Site.Home.Permalink "description" (replace .Site.Params.subtitle "\n" ". ") "sameAs" $profiles -}}
+{{- $website := dict "@type" "WebSite" "@id" (printf "%s#website" .Site.Home.Permalink) "url" .Site.Home.Permalink "name" .Site.Title -}}
+{{- $profile := dict "@type" "ProfilePage" "@id" (printf "%s#profile" .Permalink) "url" .Permalink "name" .Site.Params.seoTitle "mainEntity" $person "isPartOf" (dict "@id" (printf "%s#website" .Site.Home.Permalink)) -}}
+{{- $data := dict "@context" "https://schema.org" "@graph" (slice $website $profile) -}}
+<script type="application/ld+json">{{ $data | jsonify | safeJS }}</script>

@@ -42,9 +42,10 @@
     {{ else }}
     <meta name="twitter:card" content="summary">
     {{ end }}
-    <link rel="icon" href="{{ "favicon.svg" | relURL }}" type="image/svg+xml">
-    <link rel="icon" href="{{ "favicon-32.png" | relURL }}" type="image/png" sizes="32x32">
-    <link rel="apple-touch-icon" href="{{ "apple-touch-icon.png" | relURL }}" sizes="180x180">
+    <link rel="icon" href="{{ "favicon.ico?v=transparent" | relURL }}" sizes="16x16 32x32 48x48">
+    <link rel="icon" href="{{ "favicon-transparent-32.png" | relURL }}" type="image/png" sizes="32x32">
+    <link rel="icon" href="{{ "favicon-transparent-48.png" | relURL }}" type="image/png" sizes="48x48">
+    <link rel="apple-touch-icon" href="{{ "apple-touch-icon-transparent.png" | relURL }}" sizes="180x180">
     {{ if .IsHome }}
     {{ partial "profile-schema.html" . }}
     {{ end }}
@@ -55,6 +56,7 @@
         gtag('js', new Date());
         gtag('config', 'G-MK0NBRK9RP');
     </script>
+    <link rel="preload" href="{{ "fonts/chakra-petch-regular.woff2" | relURL }}" as="font" type="font/woff2" crossorigin>
     {{ $options := (dict "targetPath" "css/styles.css" "outputStyle" "compressed" "includePaths" (slice "node_modules")) }}
     {{ $style := resources.Get "sass/main.scss" | toCSS  $options | minify }}
     <link rel="stylesheet" href="{{ $style.RelPermalink }}" media="screen">

@@ -1,0 +1,4 @@
+Use case: background-extraction. Edit target: this existing pixel-art head favicon portrait. Remove ONLY the charcoal background and replace it with genuine alpha transparency. Preserve the face, facial likeness, hairstyle, beard, blue eyes, natural skin colors, square canvas, exact placement and pixel-art geometry. The dark pixels inside hair and beard are part of the subject and must stay opaque; remove only the exterior background. Clean pixel-art silhouette around hair, ears and beard. No white or dark fringe, no outline, no added glow, no shadow, no circle or badge. Keep all facial features and their existing relative proportions unchanged. Fully transparent outside the head.
+
+Edit target: favicon-portrait.png
+Tool: built-in imagegen, transparent background enabled.

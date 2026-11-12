@@ -2,7 +2,7 @@
 title: "x"
 profileURL: "https://x.com/gregl83"
 description: "Gregory Langlais on X (@gregl83). Posts and conversations."
-weight: 2
+weight: 5
 username: "gregl83"
 keywords: []
 date: 2024-01-18T10:25:00-05:00

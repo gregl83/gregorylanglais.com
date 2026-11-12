@@ -38,14 +38,15 @@ if (orbit) {
             const center = centers[index];
             const distance = origin ? Math.hypot(origin.x - center.x, origin.y - center.y) : 0;
             link.style.setProperty('--illumination', light[index].toFixed(4));
+            link.style.setProperty('--approach', index === source ? '1' : '0');
             link.style.setProperty('--rim-x', `${distance ? (origin.x - center.x) / distance * 2 : 0}px`);
             link.style.setProperty('--rim-y', `${distance ? (origin.y - center.y) / distance * 2 : 0}px`);
         });
         trails.forEach((trail, index) => {
             const a = centers[index], b = centers[(index + 1) % links.length];
             const distance = Math.hypot(b.x - a.x, b.y - a.y);
-            // Use screen geometry so cylinders keep a circular cross-section
-            // even when the hexagon flattens on a short landscape screen.
+            // Keep HUD connections aligned with stable link centers, including
+            // when the formation flattens on a short landscape screen.
             const clearance = (a.size + b.size) / 2 + 24;
             trail.style.setProperty('--connector-x', `${(a.x + b.x) / 2 - bounds.x}px`);
             trail.style.setProperty('--connector-y', `${(a.y + b.y) / 2 - bounds.y}px`);
