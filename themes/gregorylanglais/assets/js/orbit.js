@@ -88,7 +88,10 @@ if (orbit) {
     window.addEventListener('resize', illuminate, { passive: true });
     const layoutObserver = new ResizeObserver(illuminate);
     layoutObserver.observe(orbit);
-    window.addEventListener('beforeunload', () => layoutObserver.disconnect(), { once: true });
+    window.addEventListener('pagehide', (event) => {
+        clear();
+        if (!event.persisted) layoutObserver.disconnect();
+    });
     document.documentElement.addEventListener('pointerleave', () => {
         hovered = pressed = null;
         illuminate();

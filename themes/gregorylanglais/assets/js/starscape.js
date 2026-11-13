@@ -743,7 +743,8 @@ import * as THREE from 'three';
     viewportObserver.observe(canvas);
 
     // 8. Main Render & Animation Loop
-    let animationFrameId;
+    let animationFrameId = null;
+    let disposed = false;
     let elapsedTime = 0;
 
     function animate() {
@@ -814,25 +815,46 @@ import * as THREE from 'three';
 
     animate();
 
-    document.addEventListener('visibilitychange', () => {
-        if (prefersReducedMotion) return;
+    function pauseStarscape() {
         cancelAnimationFrame(animationFrameId);
+        animationFrameId = null;
         clock.stop();
         endTouch();
-        if (!document.hidden) {
-            clock.start();
-            resetOrientation();
-            nextMeteorTime = performance.now() + 5000;
-            meteorActive = false;
-            meteorMat.opacity = 0;
-            animate();
+    }
+
+    function resumeStarscape() {
+        if (disposed || document.hidden) return;
+        queueResize();
+        if (prefersReducedMotion) {
+            renderer.render(scene, camera);
+            return;
         }
+        // visibilitychange and pageshow can both fire on a history restore.
+        if (animationFrameId !== null) return;
+        clock.start();
+        resetOrientation();
+        nextMeteorTime = performance.now() + 5000;
+        meteorActive = false;
+        meteorMat.opacity = 0;
+        animate();
+    }
+
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) pauseStarscape();
+        else resumeStarscape();
+    });
+    window.addEventListener('pageshow', (event) => {
+        if (event.persisted) resumeStarscape();
     });
 
-    // Clean disposal
-    window.addEventListener('beforeunload', () => {
-        cancelAnimationFrame(animationFrameId);
+    window.addEventListener('pagehide', (event) => {
+        pauseStarscape();
         cancelAnimationFrame(resizeFrameId);
+        resizeFrameId = null;
+        // Back/forward caching freezes this scene for reuse. Dispose only when
+        // the document is actually being discarded, never before navigation.
+        if (event.persisted) return;
+        disposed = true;
         viewportObserver.disconnect();
         cloudTarget.dispose();
         scene.traverse(object => {

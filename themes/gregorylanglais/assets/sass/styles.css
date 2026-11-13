@@ -719,3 +719,23 @@ footer.viewport-footer > div::after {
         transform: none;
     }
 }
+
+/* The HUD gains power in sequence; the sky and layout stay steady. */
+@keyframes hud-enable {
+    0% { opacity: 0; }
+    12% { opacity: 0.12; }
+    22% { opacity: 0.12; }
+    60% { opacity: 0.7; }
+    100% { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    .viewport-header,
+    #content,
+    footer.viewport-footer {
+        animation: hud-enable 950ms ease-out 150ms backwards;
+    }
+
+    #content { animation-delay: 250ms; }
+    footer.viewport-footer { animation-delay: 350ms; }
+}
