@@ -18,20 +18,23 @@ import * as THREE from 'three';
     const camera = new THREE.PerspectiveCamera(55, canvas.clientWidth / canvas.clientHeight, 1, 18000);
     camera.position.set(0, 0, 0);
 
+    const mobileInput = window.matchMedia('(pointer: coarse)').matches;
+    const pixelRatio = () => Math.min(window.devicePixelRatio || 1, mobileInput ? 1.5 : 2);
     const renderer = new THREE.WebGLRenderer({
         canvas: canvas,
-        antialias: true,
+        // Stars already have shader-softened edges; mobile MSAA adds GPU cost.
+        antialias: !mobileInput,
         alpha: false,
         powerPreference: 'high-performance'
     });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setPixelRatio(pixelRatio());
     renderer.setSize(canvas.clientWidth, canvas.clientHeight, false);
     renderer.setClearColor(0x000000, 1.0);
 
     const clock = new THREE.Clock();
     const commonUniforms = {
         uTime: { value: 0 },
-        uPixelRatio: { value: Math.min(window.devicePixelRatio, 2) }
+        uPixelRatio: { value: pixelRatio() }
     };
 
     // 2. Star Shader Materials (Realistic Shimmer & Diffraction Spikes)
@@ -326,7 +329,7 @@ import * as THREE from 'three';
         `
     });
     const cloudTextureWidth = Math.min(2048, Math.max(1024,
-        Math.ceil(canvas.clientWidth * Math.min(window.devicePixelRatio, 2))));
+        Math.ceil(canvas.clientWidth * pixelRatio())));
     const cloudTarget = new THREE.WebGLRenderTarget(cloudTextureWidth, cloudTextureWidth / 2, {
         depthBuffer: false,
         stencilBuffer: false
@@ -561,9 +564,7 @@ import * as THREE from 'three';
         targetX: 0,
         targetY: 0,
         currentX: 0,
-        currentY: 0,
-        touchStartX: 0,
-        touchStartY: 0
+        currentY: 0
     };
 
     // Mouse input describes a viewpoint shift; device sensors describe rotation.
@@ -583,6 +584,8 @@ import * as THREE from 'three';
     const clamp = THREE.MathUtils.clamp;
     let orientationOrigin = null;
     let touchActive = false;
+    let gesture = null;
+    const orientationBase = { yaw: 0, pitch: 0, roll: 0 };
     let lastTouchTime = -Infinity;
 
     window.addEventListener('pointermove', (e) => {
@@ -600,9 +603,9 @@ import * as THREE from 'three';
     function handleOrientation(e) {
         if (!Number.isFinite(e.gamma) || !Number.isFinite(e.beta) || prefersReducedMotion || touchActive) return;
         const angle = window.screen.orientation?.angle ?? window.orientation ?? 0;
-        // Compose rotations before taking a relative pose. This handles heading
-        // wraparound and couples tilt axes correctly in portrait and landscape.
-        deviceEuler.set(radians(e.beta), radians(Number.isFinite(e.alpha) ? e.alpha : 0), -radians(e.gamma), 'YXZ');
+        // This is a tilt-controlled window, not a compass. Exclude magnetic
+        // heading: its corrections can jump even when the phone is stationary.
+        deviceEuler.set(radians(e.beta), 0, -radians(e.gamma), 'YXZ');
         deviceRotation.setFromEuler(deviceEuler);
         deviceRotation.multiply(deviceToCamera);
         screenRotation.setFromAxisAngle(screenAxis, -radians(angle));
@@ -613,16 +616,17 @@ import * as THREE from 'three';
         rig.mode = 'tilt';
         // A restrained window into the sky, with a small roll component. Bound
         // horizontal travel on narrow screens so it never sweeps a whole screen.
-        rig.yaw = clamp(rigEuler.y * 0.45, -0.12, 0.12) * Math.min(1, camera.aspect);
-        rig.pitch = clamp(rigEuler.x * 0.45, -0.10, 0.10);
-        rig.roll = clamp(rigEuler.z * 0.08, -0.025, 0.025);
+        rig.yaw = clamp(orientationBase.yaw + clamp(rigEuler.y * 0.45, -0.12, 0.12) * Math.min(1, camera.aspect), -0.24, 0.24);
+        rig.pitch = clamp(orientationBase.pitch + clamp(rigEuler.x * 0.45, -0.10, 0.10), -0.18, 0.18);
+        rig.roll = clamp(orientationBase.roll + clamp(rigEuler.z * 0.08, -0.025, 0.025), -0.025, 0.025);
     }
 
     function resetOrientation() {
         orientationOrigin = null;
-        rig.yaw = rig.pitch = rig.roll = 0;
-        pointer.targetX = 0;
-        pointer.targetY = 0;
+        // Rebase sensors without snapping back after a drag or screen rotation.
+        orientationBase.yaw = rig.yaw;
+        orientationBase.pitch = rig.pitch;
+        orientationBase.roll = rig.roll;
     }
     window.addEventListener('orientationchange', resetOrientation, { passive: true });
     window.screen.orientation?.addEventListener('change', resetOrientation);
@@ -647,61 +651,89 @@ import * as THREE from 'three';
         }
     }
 
-    // Mobile Touch Drag Fallback
+    // Mobile drag: acquire control only after a deliberate background gesture.
+    // Tapping a link must not change the camera or reset the sensor reference.
     window.addEventListener('touchstart', (e) => {
-        if (e.touches.length > 0) {
-            touchActive = true;
-            lastTouchTime = performance.now();
-            rig.mode = 'touch';
-            pointer.touchStartX = e.touches[0].clientX;
-            pointer.touchStartY = e.touches[0].clientY;
+        lastTouchTime = performance.now();
+        if (prefersReducedMotion || e.touches.length !== 1 ||
+            e.target.closest?.('a, button, input, textarea, select')) {
+            endTouch();
+            return;
         }
+        gesture = { id: e.touches[0].identifier, x: e.touches[0].clientX, y: e.touches[0].clientY };
     }, { passive: true });
 
     window.addEventListener('touchmove', (e) => {
-        if (prefersReducedMotion || e.touches.length === 0) return;
-        rig.mode = 'touch';
-        const dx = (e.touches[0].clientX - pointer.touchStartX) / window.innerWidth;
-        const dy = (e.touches[0].clientY - pointer.touchStartY) / window.innerHeight;
-
-        pointer.targetX = Math.max(-1, Math.min(1, pointer.targetX + dx * 1.5));
-        pointer.targetY = Math.max(-1, Math.min(1, pointer.targetY - dy * 1.5));
-        pointer.touchStartX = e.touches[0].clientX;
-        pointer.touchStartY = e.touches[0].clientY;
+        if (!gesture) return;
+        if (e.touches.length !== 1) { endTouch(); return; }
+        const touch = e.touches[0];
+        if (touch.identifier !== gesture.id) { endTouch(); return; }
+        const dx = touch.clientX - gesture.x;
+        const dy = touch.clientY - gesture.y;
+        if (!touchActive) {
+            if (Math.hypot(dx, dy) < 6) return;
+            // Start at the visible pose, including any sensor damping in flight.
+            rigEuler.setFromQuaternion(camera.quaternion, 'YXZ');
+            gesture.yaw = rigEuler.y;
+            gesture.pitch = rigEuler.x;
+            rig.roll = rigEuler.z;
+            touchActive = true;
+            rig.mode = 'touch';
+        }
+        const verticalFov = radians(camera.fov);
+        const horizontalFov = 2 * Math.atan(Math.tan(verticalFov / 2) * camera.aspect);
+        // Grab the sky: it follows the finger, with one responsive damping stage.
+        rig.yaw = clamp(gesture.yaw + dx / canvas.clientWidth * horizontalFov * 0.65, -0.24, 0.24);
+        rig.pitch = clamp(gesture.pitch + dy / canvas.clientHeight * verticalFov * 0.65, -0.18, 0.18);
     }, { passive: true });
 
     function endTouch() {
+        if (touchActive) resetOrientation();
         touchActive = false;
+        gesture = null;
         lastTouchTime = performance.now();
-        resetOrientation();
     }
     window.addEventListener('touchend', endTouch, { passive: true });
     window.addEventListener('touchcancel', endTouch, { passive: true });
 
-    // 7. Window Resizing
+    // Coalesce resize notifications and only reallocate changed buffers. Mobile
+    // browser chrome can generate both window and ResizeObserver notifications.
+    let renderWidth = canvas.clientWidth;
+    let renderHeight = canvas.clientHeight;
+    let renderRatio = pixelRatio();
+    let resizeFrameId = null;
     function onResize() {
+        resizeFrameId = null;
         const w = canvas.clientWidth;
         const h = canvas.clientHeight;
-
+        const ratio = pixelRatio();
+        if (!w || !h || (w === renderWidth && h === renderHeight && ratio === renderRatio)) return;
         camera.aspect = w / h;
         camera.updateProjectionMatrix();
-
-        renderer.setSize(w, h, false);
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-        commonUniforms.uPixelRatio.value = Math.min(window.devicePixelRatio, 2);
+        if (ratio !== renderRatio) renderer.setPixelRatio(ratio);
+        if (w !== renderWidth || h !== renderHeight) renderer.setSize(w, h, false);
+        commonUniforms.uPixelRatio.value = ratio;
+        renderWidth = w;
+        renderHeight = h;
+        renderRatio = ratio;
+        if (prefersReducedMotion) renderer.render(scene, camera);
     }
-    window.addEventListener('resize', onResize, { passive: true });
-    const viewportObserver = new ResizeObserver(onResize);
+    function queueResize() {
+        if (resizeFrameId === null) resizeFrameId = requestAnimationFrame(onResize);
+    }
+    window.addEventListener('resize', queueResize, { passive: true });
+    const viewportObserver = new ResizeObserver(queueResize);
     viewportObserver.observe(canvas);
 
     // 8. Main Render & Animation Loop
     let animationFrameId;
+    let elapsedTime = 0;
 
     function animate() {
-        animationFrameId = requestAnimationFrame(animate);
+        if (!prefersReducedMotion) animationFrameId = requestAnimationFrame(animate);
 
         const delta = Math.min(clock.getDelta(), 0.1);
-        const elapsedTime = clock.elapsedTime;
+        elapsedTime += delta;
         const now = performance.now();
         commonUniforms.uTime.value = prefersReducedMotion ? 0 : elapsedTime;
 
@@ -716,28 +748,24 @@ import * as THREE from 'three';
         const driftPitch = Math.sin(elapsedTime * 0.05) * 0.0004;
         let yaw, pitch, roll = 0;
         let shiftX = 0, shiftY = 0;
-        if (rig.mode === 'tilt') {
+        if (rig.mode === 'tilt' || rig.mode === 'touch') {
             yaw = rig.yaw;
             pitch = rig.pitch;
         } else {
-            // Desktop: a small lean plus translation gives nearer stars extra
-            // displacement. Touch drag is a rotation-led fallback for no sensor.
-            const dragging = rig.mode === 'touch';
-            yaw = -pointer.currentX * (dragging ? 0.06 * Math.min(1, camera.aspect) : 0.008);
-            pitch = pointer.currentY * (dragging ? 0.05 : 0.006);
-            if (!dragging) {
-                shiftX = pointer.currentX * 10 * Math.min(camera.aspect, 2);
-                shiftY = pointer.currentY * 7;
-            }
+            // Desktop: retain the existing small lean and near-field shift.
+            yaw = -pointer.currentX * 0.008;
+            pitch = pointer.currentY * 0.006;
+            shiftX = pointer.currentX * 10 * Math.min(camera.aspect, 2);
+            shiftY = pointer.currentY * 7;
         }
-        if (rig.mode === 'tilt') roll = rig.roll;
+        if (rig.mode !== 'mouse') roll = rig.roll;
         rigEuler.set(pitch + driftPitch, yaw + driftYaw, roll, 'YXZ');
         targetRotation.setFromEuler(rigEuler);
         if (prefersReducedMotion) {
             camera.position.set(0, 0, 0);
             camera.quaternion.identity();
         } else {
-            camera.quaternion.slerp(targetRotation, 1 - Math.exp(-delta * 18));
+            camera.quaternion.slerp(targetRotation, 1 - Math.exp(-delta * (touchActive ? 32 : 18)));
             camera.position.x += (shiftX - camera.position.x) * (1 - Math.exp(-delta * 16));
             camera.position.y += (shiftY - camera.position.y) * (1 - Math.exp(-delta * 16));
             updateMeteor(now);
@@ -762,9 +790,25 @@ import * as THREE from 'three';
 
     animate();
 
+    document.addEventListener('visibilitychange', () => {
+        if (prefersReducedMotion) return;
+        cancelAnimationFrame(animationFrameId);
+        clock.stop();
+        endTouch();
+        if (!document.hidden) {
+            clock.start();
+            resetOrientation();
+            nextMeteorTime = performance.now() + 5000;
+            meteorActive = false;
+            meteorMat.opacity = 0;
+            animate();
+        }
+    });
+
     // Clean disposal
     window.addEventListener('beforeunload', () => {
         cancelAnimationFrame(animationFrameId);
+        cancelAnimationFrame(resizeFrameId);
         viewportObserver.disconnect();
         cloudTarget.dispose();
         scene.traverse(object => {

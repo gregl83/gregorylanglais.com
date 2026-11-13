@@ -215,6 +215,8 @@ main h3 a:hover {
 /* Use the same visible viewport for the foreground and the renderer. */
 body {
     overscroll-behavior: none;
+    /* Reserve one-finger gestures for the sky; retain browser pinch zoom. */
+    touch-action: pinch-zoom;
 }
 
 #content,
