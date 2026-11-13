@@ -588,17 +588,16 @@ import * as THREE from 'three';
     const orientationBase = { yaw: 0, pitch: 0, roll: 0 };
     let lastTouchTime = -Infinity;
 
-    window.addEventListener('pointermove', (e) => {
+    function updateMouse(e) {
         if (e.pointerType !== 'mouse' || performance.now() - lastTouchTime < 1000) return;
         rig.mode = 'mouse';
         pointer.targetX = clamp((e.clientX / canvas.clientWidth) * 2 - 1, -1, 1);
         pointer.targetY = clamp(1 - (e.clientY / canvas.clientHeight) * 2, -1, 1);
-    }, { passive: true });
-    document.documentElement.addEventListener('pointerleave', (e) => {
-        if (e.pointerType !== 'mouse' || rig.mode !== 'mouse') return;
-        pointer.targetX = 0;
-        pointer.targetY = 0;
-    }, { passive: true });
+    }
+    window.addEventListener('pointermove', updateMouse, { passive: true });
+    document.documentElement.addEventListener('pointerenter', updateMouse, { passive: true });
+    // Retain the last viewpoint outside the window. Re-entry supplies a fresh
+    // target through the same damping, without an artificial return to center.
 
     function handleOrientation(e) {
         if (!Number.isFinite(e.gamma) || !Number.isFinite(e.beta) || prefersReducedMotion || touchActive) return;
@@ -752,11 +751,13 @@ import * as THREE from 'three';
             yaw = rig.yaw;
             pitch = rig.pitch;
         } else {
-            // Desktop: retain the existing small lean and near-field shift.
-            yaw = -pointer.currentX * 0.008;
-            pitch = pointer.currentY * 0.006;
-            shiftX = pointer.currentX * 10 * Math.min(camera.aspect, 2);
-            shiftY = pointer.currentY * 7;
+            // Mostly viewpoint translation: nearby stars move more while the
+            // deep background stays anchored. Scale both axes by the same
+            // vertical field of view so wide screens do not exaggerate a sweep.
+            yaw = -pointer.currentX * 0.0015 * camera.aspect;
+            pitch = pointer.currentY * 0.0015;
+            shiftX = pointer.currentX * 4 * camera.aspect;
+            shiftY = pointer.currentY * 4;
         }
         if (rig.mode !== 'mouse') roll = rig.roll;
         rigEuler.set(pitch + driftPitch, yaw + driftYaw, roll, 'YXZ');
