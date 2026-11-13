@@ -178,7 +178,8 @@ main.single #title {
     margin-top: 6rem;
     text-align: center;
     color: #ffffff;
-    border-color: rgba(255, 255, 255, 0.2) !important;
+    border: 0 !important;
+    text-decoration: none;
 }
 
 main.list a.link-secondary {
@@ -191,17 +192,46 @@ main.list a.link-secondary:hover {
     text-shadow: 0 0 10px rgba(255, 255, 255, 0.7);
 }
 
-main h3 {
-    color: #f1f5f9;
+/* The recovery message shares the HUD's neutral typography and light. */
+main.not-found h3 {
+    max-width: 38rem;
+    margin: 0 auto;
+    padding: 24px 12px;
+    font-family: "Chakra Petch", sans-serif;
+    font-size: clamp(1rem, 2.2vw, 1.35rem);
+    font-weight: 400;
+    line-height: 1.65;
+    letter-spacing: 0.04em;
+    color: #b8b8b8;
 }
 
-main h3 a {
-    color: #60a5fa;
-    text-decoration: underline;
+main.not-found h3 a {
+    color: #dadada;
+    font-weight: 600;
+    text-decoration: none;
+    text-shadow: 0 0 0.08em rgba(235, 235, 235, 0.035);
+    transition: color 250ms ease, text-shadow 250ms ease;
 }
 
-main h3 a:hover {
+main.not-found h3 a:hover,
+main.not-found h3 a:focus-visible,
+main.not-found h3 a:active {
     color: #ffffff;
+    text-shadow: 0 0 0.08em rgba(235, 235, 235, 0.65),
+                 0 0 0.35em rgba(235, 235, 235, 0.42),
+                 0 0 1.2em rgba(235, 235, 235, 0.3);
+}
+
+main.not-found h3 a:focus-visible {
+    outline: 2px solid #d0d0d0;
+    outline-offset: 6px;
+    border-radius: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    main.not-found h3 a {
+        transition: none;
+    }
 }
 
 /* Responsive adjustments for mobile screens */
@@ -518,22 +548,6 @@ main.home .col-12 {
     padding: Max(20px, env(safe-area-inset-top)) 24px 0;
 }
 
-.viewport-header::before {
-    content: "";
-    position: absolute;
-    z-index: -1;
-    left: 50%;
-    top: 44px;
-    width: Min(640px, calc(100vw - 16px));
-    height: 180px;
-    transform: translate(-50%, -50%);
-    border-radius: 50%;
-    background: radial-gradient(ellipse at center, rgba(235, 235, 235, 0.065), rgba(235, 235, 235, 0.02) 40%, transparent 68%);
-    opacity: var(--hud-light);
-    transition: opacity 250ms ease;
-    pointer-events: none;
-}
-
 .viewport-header h1 {
     font-family: "Chakra Petch", sans-serif;
     font-size: clamp(2rem, 3.4vw, 2.6rem);
@@ -541,11 +555,13 @@ main.home .col-12 {
     text-transform: uppercase;
     letter-spacing: 0.065em;
     // Neutral light keeps the HUD quiet against the starscape.
-    color: rgb(calc(218 + var(--hud-light) * 27), calc(218 + var(--hud-light) * 27), calc(218 + var(--hud-light) * 27));
-    text-shadow: -0.4px 0.1px rgba(235, 235, 235, 0.2),
-                 0.4px 0.35px rgba(235, 235, 235, 0.16),
-                 0 0 7px rgba(235, 235, 235, calc(0.06 + var(--hud-light) * 0.18)),
-                 0 0 16px rgba(235, 235, 235, calc(0.015 + var(--hud-light) * 0.08));
+    color: rgb(calc(218 + var(--hud-light) * 37), calc(218 + var(--hud-light) * 37), calc(218 + var(--hud-light) * 37));
+    // Blur the glyphs themselves; em units follow responsive text size.
+    text-shadow: 0 0 0.08em rgba(235, 235, 235, calc(0.035 + var(--hud-light) * 0.65)),
+                 0 0 0.35em rgba(235, 235, 235, calc(0.015 + var(--hud-light) * 0.42)),
+                 0 0 1.2em rgba(235, 235, 235, calc(var(--hud-light) * 0.48)),
+                 0 0 2.4em rgba(235, 235, 235, calc(var(--hud-light) * 0.42)),
+                 0 0 3.5em rgba(235, 235, 235, calc(var(--hud-light) * 0.28));
     transition: color 250ms ease, text-shadow 250ms ease;
 }
 
@@ -558,7 +574,9 @@ main.home .col-12 {
     line-height: 1.5;
     letter-spacing: 0.04em;
     color: #b8b8b8;
-    text-shadow: 0.45px 0.35px rgba(235, 235, 235, 0.12), 0 0 6px rgba(235, 235, 235, calc(0.06 + var(--hud-light) * 0.16));
+    text-shadow: 0 0 0.08em rgba(235, 235, 235, calc(0.035 + var(--hud-light) * 0.2)),
+                 0 0 0.25em rgba(235, 235, 235, calc(0.015 + var(--hud-light) * 0.14)),
+                 0 0 0.55em rgba(235, 235, 235, calc(var(--hud-light) * 0.06));
     transition: text-shadow 250ms ease;
 }
 
@@ -689,7 +707,6 @@ footer.viewport-footer > div::after {
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .viewport-header::before,
     .viewport-header h1,
     .viewport-header h6 {
         transition: none;

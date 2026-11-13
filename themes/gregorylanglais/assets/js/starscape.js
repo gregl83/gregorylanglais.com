@@ -567,9 +567,8 @@ import * as THREE from 'three';
         currentY: 0
     };
 
-    // Mouse input describes a viewpoint shift; device sensors describe rotation.
-    // Keep these separate instead of interpreting both as camera translation.
-    const rig = { mode: 'mouse', yaw: 0, pitch: 0, roll: 0 };
+    // Tilt is a small virtual viewpoint shift, revealing the scene's depth.
+    const rig = { mode: 'mouse', yaw: 0, pitch: 0, roll: 0, shiftX: 0, shiftY: 0 };
     const viewportFrame = document.querySelector('.viewport-frame');
     const framePose = { x: 0, y: 0 };
     const targetRotation = new THREE.Quaternion();
@@ -585,7 +584,8 @@ import * as THREE from 'three';
     let orientationOrigin = null;
     let touchActive = false;
     let gesture = null;
-    const orientationBase = { yaw: 0, pitch: 0, roll: 0 };
+    const orientationBase = { yaw: 0, pitch: 0, roll: 0, shiftX: 0, shiftY: 0 };
+    let stopPermissionRequest = () => {};
     let lastTouchTime = -Infinity;
 
     function updateMouse(e) {
@@ -601,6 +601,7 @@ import * as THREE from 'three';
 
     function handleOrientation(e) {
         if (!Number.isFinite(e.gamma) || !Number.isFinite(e.beta) || prefersReducedMotion || touchActive) return;
+        stopPermissionRequest();
         const angle = window.screen.orientation?.angle ?? window.orientation ?? 0;
         // This is a tilt-controlled window, not a compass. Exclude magnetic
         // heading: its corrections can jump even when the phone is stationary.
@@ -613,11 +614,17 @@ import * as THREE from 'three';
         relativeRotation.copy(orientationOrigin).multiply(deviceRotation);
         rigEuler.setFromQuaternion(relativeRotation, 'YXZ');
         rig.mode = 'tilt';
-        // A restrained window into the sky, with a small roll component. Bound
-        // horizontal travel on narrow screens so it never sweeps a whole screen.
-        rig.yaw = clamp(orientationBase.yaw + clamp(rigEuler.y * 0.45, -0.12, 0.12) * Math.min(1, camera.aspect), -0.24, 0.24);
-        rig.pitch = clamp(orientationBase.pitch + clamp(rigEuler.x * 0.45, -0.10, 0.10), -0.18, 0.18);
-        rig.roll = clamp(orientationBase.roll + clamp(rigEuler.z * 0.08, -0.025, 0.025), -0.025, 0.025);
+        // Smooth saturation avoids a sudden stop at an angular threshold.
+        // Translation reveals near/far separation; tiny rotation keeps the
+        // distant sky anchored. One response curve drives both coherently.
+        const x = Math.tanh(rigEuler.y / radians(12));
+        const y = Math.tanh(rigEuler.x / radians(12));
+        rig.shiftX = orientationBase.shiftX - x * 6 * camera.aspect;
+        rig.shiftY = orientationBase.shiftY + y * 6;
+        rig.yaw = orientationBase.yaw + x * 0.0015 * camera.aspect;
+        rig.pitch = orientationBase.pitch + y * 0.0015;
+        rig.roll = orientationBase.roll + Math.tanh(rigEuler.z / radians(18)) * 0.001;
+
     }
 
     function resetOrientation() {
@@ -626,27 +633,36 @@ import * as THREE from 'three';
         orientationBase.yaw = rig.yaw;
         orientationBase.pitch = rig.pitch;
         orientationBase.roll = rig.roll;
+        orientationBase.shiftX = rig.shiftX;
+        orientationBase.shiftY = rig.shiftY;
     }
     window.addEventListener('orientationchange', resetOrientation, { passive: true });
     window.screen.orientation?.addEventListener('change', resetOrientation);
 
-    if (window.DeviceOrientationEvent) {
+    if (window.DeviceOrientationEvent && !prefersReducedMotion) {
+        // Listen on load, including browsers with an existing permission grant.
+        // Only ask from a gesture when the browser actually requires one.
+        window.addEventListener('deviceorientation', handleOrientation, { passive: true });
         if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-            const onFirstTouch = () => {
-                DeviceOrientationEvent.requestPermission()
-                    .then(state => {
-                        if (state === 'granted') {
-                            window.addEventListener('deviceorientation', handleOrientation, { passive: true });
-                        }
-                    })
-                    .catch(() => {});
-                window.removeEventListener('touchstart', onFirstTouch);
-                window.removeEventListener('click', onFirstTouch);
+            let requesting = false;
+            stopPermissionRequest = () => {
+                window.removeEventListener('touchend', requestOrientation);
+                window.removeEventListener('click', requestOrientation);
             };
-            window.addEventListener('touchstart', onFirstTouch, { passive: true });
-            window.addEventListener('click', onFirstTouch, { passive: true });
-        } else {
-            window.addEventListener('deviceorientation', handleOrientation, { passive: true });
+            async function requestOrientation() {
+                if (requesting) return;
+                requesting = true;
+                try {
+                    const state = await DeviceOrientationEvent.requestPermission();
+                    if (state === 'granted' || state === 'denied') stopPermissionRequest();
+                } catch (_) {
+                    // A gesture without activation may fail; allow a later tap.
+                } finally {
+                    requesting = false;
+                }
+            }
+            window.addEventListener('touchend', requestOrientation, { passive: true });
+            window.addEventListener('click', requestOrientation, { passive: true });
         }
     }
 
@@ -676,6 +692,8 @@ import * as THREE from 'three';
             gesture.yaw = rigEuler.y;
             gesture.pitch = rigEuler.x;
             rig.roll = rigEuler.z;
+            rig.shiftX = camera.position.x;
+            rig.shiftY = camera.position.y;
             touchActive = true;
             rig.mode = 'touch';
         }
@@ -750,6 +768,8 @@ import * as THREE from 'three';
         if (rig.mode === 'tilt' || rig.mode === 'touch') {
             yaw = rig.yaw;
             pitch = rig.pitch;
+            shiftX = rig.shiftX;
+            shiftY = rig.shiftY;
         } else {
             // Mostly viewpoint translation: nearby stars move more while the
             // deep background stays anchored. Scale both axes by the same
@@ -766,9 +786,12 @@ import * as THREE from 'three';
             camera.position.set(0, 0, 0);
             camera.quaternion.identity();
         } else {
-            camera.quaternion.slerp(targetRotation, 1 - Math.exp(-delta * (touchActive ? 32 : 18)));
-            camera.position.x += (shiftX - camera.position.x) * (1 - Math.exp(-delta * 16));
-            camera.position.y += (shiftY - camera.position.y) * (1 - Math.exp(-delta * 16));
+            // Tilt gets one matched, low-latency filter for rotation and shift.
+            const rotationRate = touchActive ? 32 : rig.mode === 'tilt' ? 24 : 18;
+            const positionRate = rig.mode === 'tilt' ? 24 : 16;
+            camera.quaternion.slerp(targetRotation, 1 - Math.exp(-delta * rotationRate));
+            camera.position.x += (shiftX - camera.position.x) * (1 - Math.exp(-delta * positionRate));
+            camera.position.y += (shiftY - camera.position.y) * (1 - Math.exp(-delta * positionRate));
             updateMeteor(now);
         }
 
