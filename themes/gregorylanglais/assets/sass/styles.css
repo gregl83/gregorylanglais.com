@@ -720,22 +720,33 @@ footer.viewport-footer > div::after {
     }
 }
 
-/* The HUD gains power in sequence; the sky and layout stay steady. */
+/* The HUD steadily gains light; layout and sky stay still. */
 @keyframes hud-enable {
     0% { opacity: 0; }
-    12% { opacity: 0.12; }
-    22% { opacity: 0.12; }
-    60% { opacity: 0.7; }
+    18% { opacity: 0.12; }
+    32% { opacity: 0.3; }
+    68% { opacity: 0.85; }
     100% { opacity: 1; }
+}
+
+/* One soft brightness swell, without interrupting the header's fade. */
+@keyframes hud-header-pulse {
+    0%, 100% { filter: brightness(1); }
+    50% { filter: brightness(1.2); }
 }
 
 @media (prefers-reduced-motion: no-preference) {
     .viewport-header,
     #content,
     footer.viewport-footer {
-        animation: hud-enable 950ms ease-out 150ms backwards;
+        animation: hud-enable 950ms ease-out 200ms backwards;
     }
 
-    #content { animation-delay: 250ms; }
-    footer.viewport-footer { animation-delay: 350ms; }
+    .viewport-header {
+        animation: hud-enable 950ms ease-out 200ms backwards,
+                   hud-header-pulse 700ms ease-in-out 550ms backwards;
+    }
+
+    #content { animation-delay: 300ms; }
+    footer.viewport-footer { animation-delay: 400ms; }
 }
